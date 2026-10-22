@@ -352,9 +352,10 @@ Things that look like bugs but are Fire OS:
   switched on over ADB.
 - The system's Home broadcast is restricted to Amazon-signed apps, and the accessibility
   event for Amazon's launcher arrives as its screen is drawn (and not at all if it is
-  already in front). The earliest trace an app can read is ActivityManager's
-  `START ... cat=[android.intent.category.HOME] ... from uid 1000` line in the system log,
-  which is what `HomeKeyWatcher` looks for. `READ_LOGS` takes effect only in a process
+  already in front). The earliest trace an app can read is the
+  `START ... cat=[android.intent.category.HOME] ... from uid 1000` line in the system log
+  (tagged ActivityManager on Fire OS 7 and ActivityTaskManager on Fire OS 8, where some
+  TVs log it `from uid 0`), which is what `HomeKeyWatcher` looks for. `READ_LOGS` takes effect only in a process
   started after the grant, which is why the watcher runs in its own process (`:homekey`).
 - Some Amazon apps, such as Luna, handle Home themselves (`CustomHomeButtonHandler:
   Bypassing HOME key` in the log) and then start the home screen under their own uid, so a

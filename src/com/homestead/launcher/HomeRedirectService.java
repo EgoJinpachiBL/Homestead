@@ -256,12 +256,14 @@ public class HomeRedirectService extends AccessibilityService {
      * seen. It is also the only sign of a press made while Amazon's home is already in
      * front. Without READ_LOGS this never runs and the window event does the job instead.
      *
-     * The system starts HOME for a Home press. Apps that Fire OS lets handle Home
-     * themselves (Amazon Luna) start it under their own uid, so the app in front counts
+     * The system starts HOME for a Home press: as uid 1000 on Fire OS 7, as uid 0 on some
+     * Fire OS 8 TVs. Apps you install never run as either. Apps that Fire OS lets handle
+     * Home themselves (Amazon Luna) start it under their own uid, so the app in front counts
      * too; other uids, such as Settings during boot, do not.
      */
     private void onHomeKey(int uid) {
-        if (uid != android.os.Process.SYSTEM_UID && !isForegroundApp(uid)) return;
+        boolean system = uid == android.os.Process.SYSTEM_UID || uid == 0;
+        if (!system && !isForegroundApp(uid)) return;
         long now = SystemClock.elapsedRealtime();
         // A deliberate Home press ends any pause, such as the Amazon Home tile's.
         suspendUntil = 0L;

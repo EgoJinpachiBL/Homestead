@@ -35,8 +35,8 @@ import java.io.InputStreamReader;
  *
  * Needs READ_LOGS, a development permission granted over ADB. The log group it maps to is
  * applied only when a process starts, so this runs in its own process: binding after the
- * grant starts a fresh one that can read the log straight away. Only ActivityManager lines
- * from the system buffer are read, and nothing is kept.
+ * grant starts a fresh one that can read the log straight away. Only ActivityManager and
+ * ActivityTaskManager lines from the system buffer are read, and nothing is kept.
  */
 public class HomeKeyWatcher extends Service {
 
@@ -95,8 +95,11 @@ public class HomeKeyWatcher extends Service {
             long started = System.currentTimeMillis();
             try {
                 // -T 1 follows from the newest line, so there is no backlog to skip.
+                // Android 9 (Fire OS 7) logs activity starts as ActivityManager; Android 10
+                // and later (Fire OS 8) as ActivityTaskManager.
                 proc = new ProcessBuilder("logcat", "-b", "system", "-v", "epoch", "-T", "1",
-                        "ActivityManager:I", "*:S").redirectErrorStream(true).start();
+                        "ActivityManager:I", "ActivityTaskManager:I", "*:S")
+                        .redirectErrorStream(true).start();
                 BufferedReader r = new BufferedReader(
                         new InputStreamReader(proc.getInputStream()));
                 Log.i(TAG, "watching for Home presses");
