@@ -91,6 +91,12 @@ public class HomeGrid implements SettingsPanel.Host {
     private View topTile;
     /** AppModel.order() as of the last build, to spot a re-sort done by the other grid. */
     private String builtOrder;
+    /**
+     * Bumped whenever either grid changes a layout setting or hides a tile; each grid builds
+     * against the value it saw, so the other one can tell it is out of date.
+     */
+    private static int layoutGen;
+    private int builtGen = -1;
     /** Settings / TV Health render inside this window; Back pops one level. */
     private final List<View> panels = new ArrayList<View>();
     /** For each open panel, the view that had focus when the next one opened over it. */
@@ -316,6 +322,7 @@ public class HomeGrid implements SettingsPanel.Host {
                     target.label + " hidden - restore it in Settings",
                     android.widget.Toast.LENGTH_SHORT).show();
         } catch (Throwable t) { }
+        layoutGen++;
         rebuild();
         return true;
     }
@@ -378,7 +385,9 @@ public class HomeGrid implements SettingsPanel.Host {
         }
     }
 
+    /** A setting changed from a panel in this grid; the other grid catches up via syncOrder(). */
     public void rebuildGrid() {
+        layoutGen++;
         AppModel.invalidateMetrics();
         applyBackground();
         rebuild();
@@ -441,11 +450,13 @@ public class HomeGrid implements SettingsPanel.Host {
     }
 
     /**
-     * The overlay and the activity each have a grid over one shared model, so a re-sort by
-     * one leaves the other stale. Rebuild if that happened. @return true if rebuilt.
+     * The overlay and the activity each have a grid over one shared model, so a re-sort or
+     * a settings change made in one leaves the other stale. Rebuild if that happened.
+     * @return true if rebuilt.
      */
     public boolean syncOrder() {
-        if (AppModel.order().equals(builtOrder)) return false;
+        if (AppModel.order().equals(builtOrder) && builtGen == layoutGen) return false;
+        android.util.Log.i("Homestead", "grid out of date, rebuilding");
         rebuild();
         return true;
     }
@@ -471,6 +482,7 @@ public class HomeGrid implements SettingsPanel.Host {
      */
     private void build() {
         builtOrder = AppModel.order();
+        builtGen = layoutGen;
         try {
             buildSections();
         } catch (Throwable t) {

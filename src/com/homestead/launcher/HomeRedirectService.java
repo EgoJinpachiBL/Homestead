@@ -458,6 +458,9 @@ public class HomeRedirectService extends AccessibilityService {
             attached = home.root;
             epoch++;
             home.closePanels();
+            // Settings changed in the activity's grid (columns, sections, hidden tiles...)
+            // would otherwise show here only after a restart.
+            home.syncOrder();
             home.applyBackground();
             home.updateClock();
             home.takeStartFocus();
