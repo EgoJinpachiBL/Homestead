@@ -106,6 +106,11 @@ public class MainActivity extends Activity implements HomeGrid.Listener {
         home.applyScroll(scrollY, rowScrollX);
     }
 
+    /** Also just before the overlay lifts: a page opened on the overlay stays open here. */
+    void adoptPanels(HomeGrid overlay) {
+        if (home != null && home.adoptPanels(overlay)) Log.i(TAG, "kept the open page");
+    }
+
     @Override
     protected void onResume() {
         super.onResume();

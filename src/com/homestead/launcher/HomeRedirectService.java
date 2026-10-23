@@ -269,6 +269,12 @@ public class HomeRedirectService extends AccessibilityService {
         suspendUntil = 0L;
         lastShow = now;
         Log.i(TAG, "Home pressed");
+        // A press while the overlay is still up goes back to the grid; attach() leaves an
+        // attached overlay as it is.
+        if (attached != null && home != null) {
+            home.closePanels();
+            if (!home.isPanelOpen()) home.takeStartFocus();
+        }
         attach();
     }
 
@@ -611,6 +617,7 @@ public class HomeRedirectService extends AccessibilityService {
             if (a == null) return;
             // Read live: the user can keep moving and scrolling during the hold.
             a.applyState(home.getSelectedKey(), home.getScrollY(), home.getRowScrollX());
+            a.adoptPanels(home);
         } catch (Throwable t) { }
     }
 

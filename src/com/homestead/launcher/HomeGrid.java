@@ -101,6 +101,12 @@ public class HomeGrid implements SettingsPanel.Host {
     private final List<View> panels = new ArrayList<View>();
     /** For each open panel, the view that had focus when the next one opened over it. */
     private final List<View> panelFocus = new ArrayList<View>();
+    /**
+     * What the panels opened here call back into. A panel keeps the host it was built with,
+     * so when the overlay hands its panels to the activity, this is pointed at the
+     * activity's grid and the overlay starts a new one.
+     */
+    private PanelHost panelHost = new PanelHost(this);
     /** The last key released here, logged when a panel opens from a tile. */
     private int lastKey;
     private int lastKeyDevice;
@@ -157,7 +163,7 @@ public class HomeGrid implements SettingsPanel.Host {
                         if (!Prefs.simpleMode(ctx)) hideFocused();
                         else if (menuTaps.tap()) {
                             logOpen("Settings (Menu x" + MenuTaps.COUNT + ")");
-                            showPanel(SettingsPanel.build(ctx, HomeGrid.this));
+                            showPanel(SettingsPanel.build(ctx, panelHost));
                         }
                     }
                     return true;
@@ -383,6 +389,48 @@ public class HomeGrid implements SettingsPanel.Host {
             }
             closePanel();
         }
+    }
+
+    /**
+     * Take over the panels open in another grid, as they are. The overlay hands them to the
+     * activity just before it lifts, so a page opened in the first seconds after Home stays
+     * open on the same row. Skipped if a panel is already open here.
+     * @return true if panels were moved.
+     */
+    public boolean adoptPanels(HomeGrid from) {
+        if (from == this || from.panels.isEmpty() || !panels.isEmpty()) return false;
+        // Settings changed on those pages since this grid last caught up.
+        syncOrder();
+        applyBackground();
+        updateClock();
+        View top = from.panels.get(from.panels.size() - 1);
+        // Taken first: leaving its window clears the focus.
+        View focus = top.findFocus();
+        scroll.setDescendantFocusability(ViewGroup.FOCUS_BLOCK_DESCENDANTS);
+        for (int i = 0; i < from.panels.size(); i++) {
+            View v = from.panels.get(i);
+            from.root.removeView(v);
+            root.addView(v, new FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            panels.add(v);
+            panelFocus.add(from.panelFocus.get(i));
+        }
+        from.panels.clear();
+        from.panelFocus.clear();
+        from.scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
+        from.panelHost.grid = this;
+        from.panelHost = new PanelHost(from);
+        if (focus == null || !focus.requestFocus()) top.requestFocus();
+        return true;
+    }
+
+    /** Passes a panel's calls on to the grid it is in now; see panelHost. */
+    private static final class PanelHost implements SettingsPanel.Host {
+        HomeGrid grid;
+        PanelHost(HomeGrid g) { grid = g; }
+        public void rebuildGrid() { grid.rebuildGrid(); }
+        public void showPanel(View v) { grid.showPanel(v); }
+        public void closePanel() { grid.closePanel(); }
     }
 
     /** A setting changed from a panel in this grid; the other grid catches up via syncOrder(). */
@@ -834,12 +882,12 @@ public class HomeGrid implements SettingsPanel.Host {
     private void act(AppModel.Item it) {
         if (it.type == AppModel.TYPE_SETTINGS) {
             logOpen(it.label);
-            showPanel(SettingsPanel.build(ctx, this));
+            showPanel(SettingsPanel.build(ctx, panelHost));
             return;
         }
         if (it.type == AppModel.TYPE_HEALTH) {
             logOpen(it.label);
-            showPanel(HealthPanel.build(ctx, this));
+            showPanel(HealthPanel.build(ctx, panelHost));
             return;
         }
         if (it.type == AppModel.TYPE_LIVETV) {

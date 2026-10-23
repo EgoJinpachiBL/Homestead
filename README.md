@@ -236,7 +236,8 @@ front, and covers it straight away.
 
 Fire OS holds back app launches for several seconds after a Home press, so Homestead shows
 its home screen as an overlay window, which is not held back. Its normal screen takes over
-once Fire OS allows it, keeping the selected tile and scroll position.
+once Fire OS allows it, keeping the selected tile, the scroll position and any page you
+opened, such as Settings.
 
 The overlay is an accessibility overlay, which needs no extra permission.
 
