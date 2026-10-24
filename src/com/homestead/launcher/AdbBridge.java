@@ -225,6 +225,31 @@ public final class AdbBridge {
         });
     }
 
+    /**
+     * run(), tried again when the link never came up. The tunnel is torn down when idle, and
+     * the first command after that often finds it still starting; a second try a moment
+     * later gets through. A batch that did start is never repeated.
+     */
+    public static void runRetry(final String[] commands, final Callback cb) {
+        runRetry(commands, 3, cb);
+    }
+
+    private static void runRetry(final String[] commands, final int attemptsLeft,
+            final Callback cb) {
+        run(commands, new Callback() {
+            public void onDone(boolean ok, String out) {
+                if (!ran(out) && attemptsLeft > 1) {
+                    new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(
+                            new Runnable() {
+                                public void run() { runRetry(commands, attemptsLeft - 1, cb); }
+                            }, 2500L);
+                    return;
+                }
+                if (cb != null) cb.onDone(ok, out);
+            }
+        });
+    }
+
     /** False when a batch never started because there was no connection. */
     public static boolean ran(String output) {
         return output != null && output.startsWith("$ ");
