@@ -280,6 +280,10 @@ powershell -ExecutionPolicy Bypass -File build.ps1            # build + sign
 powershell -ExecutionPolicy Bypass -File build.ps1 install    # and adb install -r
 ```
 
+The two scripts must make the same APK, byte for byte. After changing either one, run
+`tools/test-builds.sh` from Git Bash: it builds with each script, under Windows PowerShell
+and PowerShell 7, in a few different setups, and compares the results.
+
 Needs the Android SDK (`build-tools/36.1.0`, `platforms/android-34`) and a JDK. The signing
 key is **not** in this repository; `build.sh` looks for `~/.homestead-keys/` or the
 `HOMESTEAD_KEYSTORE` / `HOMESTEAD_KEYPASS` environment variables (to make your own key,

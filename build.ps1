@@ -1,6 +1,7 @@
 #
 # Homestead - build, sign and (optionally) install, for Windows PowerShell 5.1 or later.
 # The same steps as build.sh (aapt2/javac/d8/apksigner, no Gradle), without Git Bash.
+# Keep the two in step: tools/test-builds.sh checks that they make the same APK.
 #
 #   powershell -ExecutionPolicy Bypass -File build.ps1            build + sign
 #   powershell -ExecutionPolicy Bypass -File build.ps1 install    also adb install -r to $env:ADB_TARGET

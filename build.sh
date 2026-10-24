@@ -11,6 +11,9 @@
 #   export HOMESTEAD_KEYPASS=...
 # If HOMESTEAD_KEYPASS is unset, the password is read from KEY-INFO.txt in
 # $HOMESTEAD_KEYDIR (default ~/.homestead-keys).
+#
+# build.ps1 does the same from PowerShell. Keep the two in step: tools/test-builds.sh
+# checks that they make the same APK.
 
 set -euo pipefail
 cd "$(dirname "$0")"
