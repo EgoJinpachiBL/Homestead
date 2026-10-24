@@ -73,6 +73,11 @@ public class HomeGrid implements SettingsPanel.Host {
     private static final int HEADER_SP = 21;
     private static final int HEADER_TOP_DP = 28;
     private static final int HEADER_BOTTOM_DP = 12;
+    private static final float FOCUS_SCALE = 1.10f;
+    private static final long FOCUS_MS = 140L;
+    /** The name label under a focused banner. */
+    private static final int NAME_H_DP = 20;
+    private static final String NAME_TAG = "name";
 
     private final Context ctx;
     private final Listener listener;
@@ -761,10 +766,10 @@ public class HomeGrid implements SettingsPanel.Host {
                 if (has) {
                     focusedCell = v;
                     focusedKey = it.key();
-                    style(v, true);
+                    style(v, true, true);
                     if (v == topTile) keepAtTop();
                 } else {
-                    style(v, false);
+                    style(v, false, true);
                 }
             }
         });
@@ -805,23 +810,53 @@ public class HomeGrid implements SettingsPanel.Host {
      * directly rather than via a selector so it survives the window losing focus during
      * the overlay -> activity handoff.
      */
-    private void style(View v, boolean focused) {
+    private void style(View v, boolean focused) { style(v, focused, false); }
+
+    /**
+     * @param animate grow or shrink over FOCUS_MS; only for a D-pad move, so a focus
+     *        restored during the handoff appears at its final size.
+     */
+    private void style(View v, boolean focused, boolean animate) {
         if (!(v instanceof FrameLayout)) return;
         FrameLayout f = (FrameLayout) v;
+        float scale = focused ? FOCUS_SCALE : 1f;
         if (focused) {
             GradientDrawable ring = new GradientDrawable();
             ring.setCornerRadius(dp(8));
             ring.setStroke(dp(3), look.ring);
             ring.setColor(Color.TRANSPARENT);
             f.setForeground(ring);
-            f.setScaleX(1.10f);
-            f.setScaleY(1.10f);
             f.setTranslationZ(dp(8));
         } else {
             f.setForeground(outline());
-            f.setScaleX(1f);
-            f.setScaleY(1f);
             f.setTranslationZ(0f);
+        }
+        f.animate().cancel();
+        if (animate) {
+            f.animate().scaleX(scale).scaleY(scale).setDuration(FOCUS_MS).start();
+        } else {
+            f.setScaleX(scale);
+            f.setScaleY(scale);
+        }
+        View name = f.findViewWithTag(NAME_TAG);
+        if (name != null) {
+            name.setVisibility(focused ? View.VISIBLE : View.INVISIBLE);
+            // The label hangs over the next grid row, which is drawn later; lift this row
+            // above it. Left up while focus stays in the row, whatever order the calls come.
+            View row = (View) f.getParent();
+            if (row != null && (focused || focusedCell == null || focusedCell.getParent() != row)) {
+                row.setTranslationZ(focused ? dp(8) : 0f);
+            }
+            // Scroll far enough to show the label too, not only the banner.
+            if (focused && animate) {
+                final FrameLayout cell = f;
+                cell.post(new Runnable() {
+                    public void run() {
+                        cell.requestRectangleOnScreen(new android.graphics.Rect(0, 0,
+                                cell.getWidth(), cell.getHeight() + dp(NAME_H_DP + 8)));
+                    }
+                });
+            }
         }
     }
 
@@ -848,6 +883,28 @@ public class HomeGrid implements SettingsPanel.Host {
         img.setImageBitmap(it.banner);
         cell.addView(img, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // The app's name, shown while focused. It hangs below the banner into the gap and
+        // over the row beneath (the focused cell draws on top), so rows keep their height.
+        TextView name = new TextView(ctx);
+        name.setTag(NAME_TAG);
+        name.setText(it.label);
+        name.setTextColor(Color.WHITE);
+        name.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        name.setSingleLine(true);
+        name.setEllipsize(TextUtils.TruncateAt.END);
+        name.setGravity(Gravity.CENTER);
+        name.setPadding(dp(8), 0, dp(8), 0);
+        GradientDrawable pill = new GradientDrawable();
+        pill.setCornerRadius(dp(10));
+        pill.setColor(0xD9101820);
+        name.setBackground(pill);
+        name.setVisibility(View.INVISIBLE);
+        FrameLayout.LayoutParams nlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, dp(NAME_H_DP),
+                Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
+        name.setTranslationY(dp(NAME_H_DP + 4));
+        cell.addView(name, nlp);
         return cell;
     }
 
