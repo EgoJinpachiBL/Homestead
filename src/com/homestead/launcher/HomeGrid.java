@@ -314,11 +314,20 @@ public class HomeGrid implements SettingsPanel.Host {
         boolean show = g || df != Prefs.DATE_OFF;
         head.setVisibility(show ? View.VISIBLE : View.GONE);
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) scroll.getLayoutParams();
-        int top = show ? dp(g && df != Prefs.DATE_OFF ? 44 : 22) : 0;
+        // With the header up, the scroll area starts below it and clips, so the grid never
+        // draws over it while scrolling; the padding moves the other way, so tiles at rest
+        // stay where they were and a focused tile in the first row still has room to grow.
+        int top = show ? dp(g && df != Prefs.DATE_OFF ? 76 : 54) : 0;
         if (lp.topMargin != top) {
             lp.topMargin = top;
             scroll.setLayoutParams(lp);
+            column.setPadding(column.getPaddingLeft(), show ? dp(14) : dp(46),
+                    column.getPaddingRight(), column.getPaddingBottom());
         }
+        // Clipping to the outline holds with hardware drawing, where clipChildren alone let
+        // the scrolled rows show through over the header.
+        scroll.setOutlineProvider(android.view.ViewOutlineProvider.BOUNDS);
+        scroll.setClipToOutline(show);
     }
 
     /** Focus for a fresh Home press: Live TV when it comes first, else as takeFocus(). */
