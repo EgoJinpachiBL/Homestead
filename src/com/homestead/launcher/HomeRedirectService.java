@@ -71,6 +71,12 @@ public class HomeRedirectService extends AccessibilityService {
      * the app's first frame, so lifting at once shows Amazon's home in between.
      */
     private static final long REVEAL_MS = 400L;
+    /**
+     * After Amazon's Settings starts opening, how long its HOME start and launcher windows
+     * are not taken for Home. They follow within a fraction of a second; a real Home press
+     * from the system still counts during it.
+     */
+    private static final long SETTINGS_MS = 3000L;
 
     private static HomeRedirectService instance;
 
@@ -315,7 +321,7 @@ public class HomeRedirectService extends AccessibilityService {
      * overlay that is up is lifted so the settings page shows.
      */
     private void enterSettings(String why) {
-        settingsUntil = SystemClock.elapsedRealtime() + 3000L;
+        settingsUntil = SystemClock.elapsedRealtime() + SETTINGS_MS;
         cancelPendingOpen();
         if (attached != null) {
             Log.i(TAG, why + ", removing overlay");

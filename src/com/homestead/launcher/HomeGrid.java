@@ -635,6 +635,8 @@ public class HomeGrid implements SettingsPanel.Host {
     private void addLiveTvTile(AppModel.Item it) {
         FrameLayout cell = newCell(it);
         topTile = cell;
+        // Alone on its row, so Right would otherwise jump to a tile in the grid below.
+        stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
         GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[] { 0xFF168494, 0xFF0A3642 });
         card.setCornerRadius(dp(8));
