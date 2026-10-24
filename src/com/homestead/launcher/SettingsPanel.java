@@ -174,6 +174,55 @@ public final class SettingsPanel {
             }
         });
 
+        final Panel.Row greet = p.addRow("Greeting", onOff(Prefs.greeting(c)), null).asSwitch();
+        greet.cell.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                boolean n = !Prefs.greeting(c);
+                Prefs.setGreeting(c, n);
+                greet.setValue(onOff(n));
+                host.rebuildGrid();
+            }
+        });
+        greet.setHelp("\"Good morning\", \"Good afternoon\" or \"Good evening\" at the top left.");
+
+        final Panel.Row date = p.addRow("Date", dateLabel(c), null);
+        date.cell.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                int n = Prefs.dateFormat(c) + 1;
+                if (n > Prefs.DATE_SHORT) n = Prefs.DATE_OFF;
+                Prefs.setDateFormat(c, n);
+                date.setValue(dateLabel(c));
+                host.rebuildGrid();
+            }
+        });
+        date.setHelp("Under the greeting. Both formats follow the TV's language.");
+
+        final Panel.Row wide = p.addRow("Non-TV apps as wide tiles", onOff(Prefs.nonTvWide(c)), null).asSwitch();
+        wide.cell.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                boolean n = !Prefs.nonTvWide(c);
+                Prefs.setNonTvWide(c, n);
+                wide.setValue(onOff(n));
+                AppModel.reload(c);
+                host.rebuildGrid();
+            }
+        });
+        wide.setHelp("Like Fire TV's own home: each app's icon on a banner-sized tile, in a grid "
+                + "like the TV apps.");
+
+        final Panel.Row fire = p.addRow("Fire TV system icons", onOff(Prefs.fireOsIcons(c)), null).asSwitch();
+        fire.cell.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                boolean n = !Prefs.fireOsIcons(c);
+                Prefs.setFireOsIcons(c, n);
+                fire.setValue(onOff(n));
+                AppModel.reload(c);
+                host.rebuildGrid();
+            }
+        });
+        fire.setHelp("Amazon Home, Settings and TV Health use the icons of Fire OS's own home and "
+                + "Settings, read from this TV. Where one is missing, the usual icon stays.");
+
         p.addHeader("Sections");
 
         // Only offered on a TV that has the Live TV tile.
@@ -410,6 +459,14 @@ public final class SettingsPanel {
             case Prefs.CLOCK_12H: return "12-hour";
             case Prefs.CLOCK_OFF: return "Off";
             default: return "24-hour";
+        }
+    }
+
+    private static String dateLabel(Context c) {
+        switch (Prefs.dateFormat(c)) {
+            case Prefs.DATE_LONG: return "Weekday and month";
+            case Prefs.DATE_SHORT: return "Numbers";
+            default: return "Off";
         }
     }
 }

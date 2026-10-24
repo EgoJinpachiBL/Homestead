@@ -63,6 +63,7 @@ public final class AppModel {
     /** Item.key() of the Live TV tile; also how it is stored when hidden. */
     static final String LIVETV_KEY = "sys:livetv";
     static final String AMAZON_LAUNCHER = "com.amazon.tv.launcher";
+    static final String AMAZON_SETTINGS = "com.amazon.tv.settings.v2";
     static final String AMAZON_HOME_CLS = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
 
     /** Grid metrics: 32dp margins, 16dp gaps, 6 columns. */
@@ -171,23 +172,32 @@ public final class AppModel {
 
         loadInputs(c);
 
+        // Fire OS icons are looked up by name, so a TV without one keeps the usual icon.
+        boolean fire = Prefs.fireOsIcons(c);
+        Drawable d;
+
         Item amazon = new Item();
         amazon.type = TYPE_AMAZON_HOME;
         amazon.label = "Amazon Home";
-        amazon.icon = toBitmap(c, appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
+        d = fire ? fireOsIcon(c, AMAZON_LAUNCHER, "ic_home") : null;
+        amazon.icon = toBitmap(c, d != null ? d : appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
         ITEMS.add(amazon);
 
         Item settings = new Item();
         settings.type = TYPE_SETTINGS;
         settings.label = "Settings";
-        settings.icon = toBitmap(c, drawable(c, android.R.drawable.ic_menu_manage), ICON_PX, ICON_PX, false);
+        d = fire ? fireOsIcon(c, AMAZON_LAUNCHER, "ic_settings_default_60dp") : null;
+        settings.icon = toBitmap(c, d != null ? d : drawable(c, android.R.drawable.ic_menu_manage), ICON_PX, ICON_PX, false);
         ITEMS.add(settings);
 
         Item health = new Item();
         health.type = TYPE_HEALTH;
         health.label = "TV Health";
-        health.icon = toBitmap(c, drawable(c, android.R.drawable.ic_menu_info_details), ICON_PX, ICON_PX, false);
+        d = fire ? fireOsIcon(c, AMAZON_SETTINGS, "icon_device_margo") : null;
+        health.icon = toBitmap(c, d != null ? d : drawable(c, android.R.drawable.ic_menu_info_details), ICON_PX, ICON_PX, false);
         ITEMS.add(health);
+        d = null;
+        boolean wide = Prefs.nonTvWide(c);
 
         PackageManager pm = c.getPackageManager();
         Set<String> seen = new HashSet<String>();
@@ -226,7 +236,8 @@ public final class AppModel {
                 if (a.banner == null) {
                     Drawable ic = null;
                     try { ic = ri.loadIcon(pm); } catch (Throwable t) { ic = null; }
-                    a.icon = toBitmap(c, ic, ICON_PX, ICON_PX, false);
+                    if (wide) a.banner = iconTile(c, ic, cellW, cellH);
+                    else a.icon = toBitmap(c, ic, ICON_PX, ICON_PX, false);
                     ic = null;
                 }
                 ITEMS.add(a);
@@ -382,6 +393,49 @@ public final class AppModel {
     private static Drawable appIcon(Context c, String pkg) {
         try { return c.getPackageManager().getApplicationIcon(pkg); }
         catch (Throwable t) { return null; }
+    }
+
+    /**
+     * A drawable from another app's resources on this TV, by name; null if it has none.
+     * Tinted light: some are coloured by the owning app's theme, which we don't have.
+     */
+    private static Drawable fireOsIcon(Context c, String pkg, String name) {
+        try {
+            android.content.res.Resources r = c.getPackageManager().getResourcesForApplication(pkg);
+            int id = r.getIdentifier(name, "drawable", pkg);
+            if (id == 0) return null;
+            Drawable d = r.getDrawable(id).mutate();
+            d.setColorFilter(0xFFE6EEF8, android.graphics.PorterDuff.Mode.SRC_IN);
+            return d;
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /**
+     * A banner for an app that has none, the way Fire TV's own home draws one: the icon,
+     * full height, on a tile filled with the colour at the icon's left edge.
+     */
+    private static Bitmap iconTile(Context c, Drawable ic, int w, int h) {
+        Bitmap icon = toBitmap(c, ic, h, h, false);
+        if (icon == null) return null;
+        try {
+            Bitmap bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            Canvas cv = new Canvas(bmp);
+            Path clip = new Path();
+            float r = dp(c, CORNER_DP);
+            clip.addRoundRect(new RectF(0, 0, w, h), r, r, Path.Direction.CW);
+            cv.clipPath(clip);
+            int edge = icon.getPixel(1, icon.getHeight() / 2);
+            // A round or transparent icon has no edge colour; use a neutral card instead.
+            cv.drawColor((edge >>> 24) < 0x80 ? 0xFF2A333D : (edge | 0xFF000000));
+            cv.drawBitmap(icon, (w - icon.getWidth()) / 2f, (h - icon.getHeight()) / 2f, null);
+            return bmp;
+        } catch (Throwable t) {
+            return null;
+        } finally {
+            icon.recycle();
+        }
     }
 
     /**

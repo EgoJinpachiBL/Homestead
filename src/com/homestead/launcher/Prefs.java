@@ -53,6 +53,10 @@ public final class Prefs {
     private static final String K_UPD_AUTO = "update_auto_check";
     private static final String K_SIMPLE = "simple_mode";
     private static final String K_TV_FIRST = "livetv_first";
+    private static final String K_GREETING = "greeting";
+    private static final String K_DATE = "date_format";
+    private static final String K_NONTV_WIDE = "nontv_wide";
+    private static final String K_FIRE_ICONS = "fire_os_icons";
 
     public static final int SORT_LAST_USED = 0;
     public static final int SORT_ALPHA = 1;
@@ -60,6 +64,12 @@ public final class Prefs {
     public static final int CLOCK_24H = 0;
     public static final int CLOCK_12H = 1;
     public static final int CLOCK_OFF = 2;
+
+    public static final int DATE_OFF = 0;
+    /** Weekday, day and month, in the order the TV's language uses. */
+    public static final int DATE_LONG = 1;
+    /** The TV's short numeric date. */
+    public static final int DATE_SHORT = 2;
 
     private Prefs() { }
 
@@ -196,6 +206,22 @@ public final class Prefs {
     public static void setLiveTvFirst(Context c, boolean v) {
         sp(c).edit().putBoolean(K_TV_FIRST, v).apply();
     }
+
+    /** "Good evening" at the top left. Off by default. */
+    public static boolean greeting(Context c) { return sp(c).getBoolean(K_GREETING, false); }
+    public static void setGreeting(Context c, boolean v) { sp(c).edit().putBoolean(K_GREETING, v).apply(); }
+
+    /** The date at the top left, one of DATE_*. Off by default. */
+    public static int dateFormat(Context c) { return sp(c).getInt(K_DATE, DATE_OFF); }
+    public static void setDateFormat(Context c, int v) { sp(c).edit().putInt(K_DATE, v).apply(); }
+
+    /** Non-TV apps as banner-sized tiles built from their icon, as Fire TV's own home does. */
+    public static boolean nonTvWide(Context c) { return sp(c).getBoolean(K_NONTV_WIDE, false); }
+    public static void setNonTvWide(Context c, boolean v) { sp(c).edit().putBoolean(K_NONTV_WIDE, v).apply(); }
+
+    /** Amazon Home, Settings and TV Health use icons read from Fire OS's own apps. */
+    public static boolean fireOsIcons(Context c) { return sp(c).getBoolean(K_FIRE_ICONS, false); }
+    public static void setFireOsIcons(Context c, boolean v) { sp(c).edit().putBoolean(K_FIRE_ICONS, v).apply(); }
 
     // ---------------------------------------------------------------- updates
 
