@@ -440,21 +440,40 @@ public class HomeRedirectService extends AccessibilityService {
     private void scheduleBootMaintenance() {
         if (!Prefs.adbEnabled(this) || !Prefs.reapplyOnBoot(this)) return;
         if (!AdbCrypto.hasKey(this)) return;
+        // Until this has run, the restore tile leaves out what it is about to fix itself.
+        AppModel.setAutoFixPending(true);
         handler.postDelayed(new Runnable() {
             public void run() {
                 java.util.Set<String> want = Prefs.disabledByUs(HomeRedirectService.this);
-                if (want.isEmpty()) return;
                 java.util.List<String> cmds = new java.util.ArrayList<String>();
                 for (String pkg : want) {
+                    // A risky one (Amazon's launcher) is never switched off unattended: a
+                    // system update can change what Home depends on, so the user decides,
+                    // from the restore tile.
+                    if (Debloat.isRisky(pkg)) continue;
                     if (Debloat.stateOf(HomeRedirectService.this, pkg) == Debloat.ENABLED) {
                         cmds.add(AdbBridge.disableCommand(pkg));
                     }
                 }
-                if (cmds.isEmpty()) return;
+                if (cmds.isEmpty()) {
+                    finishBootMaintenance();
+                    return;
+                }
                 Log.i(TAG, "boot maintenance: re-disabling " + cmds.size() + " package(s)");
-                AdbBridge.run(cmds.toArray(new String[cmds.size()]), null);
+                AdbBridge.run(cmds.toArray(new String[cmds.size()]), new AdbBridge.Callback() {
+                    public void onDone(boolean ok, String out) { finishBootMaintenance(); }
+                });
             }
         }, 45000L);
+    }
+
+    /** What is still on after the unattended pass is for the restore tile to offer. */
+    private void finishBootMaintenance() {
+        AppModel.setAutoFixPending(false);
+        AppModel.reload(this);
+        if (home != null) home.rebuild();
+        MainActivity a = (liveActivity == null) ? null : liveActivity.get();
+        if (a != null) a.rebuildGrid();
     }
 
     @Override

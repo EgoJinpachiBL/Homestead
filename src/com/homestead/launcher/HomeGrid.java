@@ -100,6 +100,8 @@ public class HomeGrid implements SettingsPanel.Host {
     private View topTile;
     /** AppModel.order() as of the last build, to spot a re-sort done by the other grid. */
     private String builtOrder;
+    private boolean restoreShown;
+    private boolean restoreAppeared;
     /**
      * Bumped whenever either grid changes a layout setting or hides a tile; each grid builds
      * against the value it saw, so the other one can tell it is out of date.
@@ -337,6 +339,11 @@ public class HomeGrid implements SettingsPanel.Host {
 
     /** Focus for a fresh Home press: Live TV when it comes first, else as takeFocus(). */
     public void takeStartFocus() {
+        // The restore tile is the one thing worth seeing before anything else.
+        if (AppModel.hasRestore() && selectKey(AppModel.RESTORE_KEY)) {
+            scroll.scrollTo(0, 0);
+            return;
+        }
         if (liveTvFirst() && selectKey(AppModel.LIVETV_KEY)) {
             scroll.scrollTo(0, 0);
             return;
@@ -386,7 +393,8 @@ public class HomeGrid implements SettingsPanel.Host {
         }
         if (target == null) return false;
         // Settings and TV Health stay reachable so hidden tiles can always be restored.
-        if (target.type == AppModel.TYPE_SETTINGS || target.type == AppModel.TYPE_HEALTH) {
+        if (target.type == AppModel.TYPE_SETTINGS || target.type == AppModel.TYPE_HEALTH
+                || target.type == AppModel.TYPE_RESTORE) {
             return false;
         }
         Prefs.setHidden(ctx, target.key(), true);
@@ -587,6 +595,8 @@ public class HomeGrid implements SettingsPanel.Host {
             if (keep == null || !selectKey(keep)) takeFocus();
         }
         applyScroll(y, rx);
+        // The tile is the one thing worth seeing: move to it the moment it appears.
+        if (restoreAppeared && panels.isEmpty() && selectKey(AppModel.RESTORE_KEY)) keepAtTop();
     }
 
     // ---------------------------------------------------------------- layout
@@ -641,12 +651,18 @@ public class HomeGrid implements SettingsPanel.Host {
         // Live TV first takes the Live TV tile out of its section and puts it above them all.
         boolean tvFirst = liveTvFirst();
         AppModel.Item liveTv = null;
+        AppModel.Item restore = null;
         topTile = null;
 
         List<AppModel.Item> all = AppModel.visibleItems(ctx);
+        boolean hadRestore = restoreShown;
+        restoreShown = false;
         for (int i = 0; i < all.size(); i++) {
             AppModel.Item it = all.get(i);
-            if (tvFirst && it.type == AppModel.TYPE_LIVETV) {
+            if (it.type == AppModel.TYPE_RESTORE) {
+                restoreShown = true;
+                restore = it;
+            } else if (tvFirst && it.type == AppModel.TYPE_LIVETV) {
                 liveTv = it;
             } else if (it.type == AppModel.TYPE_INPUT || it.type == AppModel.TYPE_LIVETV
                     || it.type == AppModel.TYPE_AMAZON_HOME
@@ -659,6 +675,7 @@ public class HomeGrid implements SettingsPanel.Host {
             }
         }
 
+        restoreAppeared = restoreShown && !hadRestore;
         // Settings and TV Health survive the section being switched off.
         if (!Prefs.showInputs(ctx)) {
             List<AppModel.Item> keep = new ArrayList<AppModel.Item>();
@@ -687,6 +704,7 @@ public class HomeGrid implements SettingsPanel.Host {
         String nonTvTitle = ctx.getString(R.string.home_sec_nontv);
         String tvTitle = ctx.getString(R.string.home_sec_tv);
         boolean first = true;
+        if (restore != null) { addRestoreTile(restore); first = false; }
         if (tvFirst) {
             if (liveTv != null)    { addLiveTvTile(liveTv); first = false; }
             if (!tv.isEmpty())     { addHeader(tvTitle, first); first = false; addTileGrid(tv); }
@@ -702,7 +720,7 @@ public class HomeGrid implements SettingsPanel.Host {
     /** Live TV first: one large tile, two banner cells wide, on its own row. */
     private void addLiveTvTile(AppModel.Item it) {
         FrameLayout cell = newCell(it);
-        topTile = cell;
+        if (topTile == null) topTile = cell;
         // Alone on its row, so Left or Right would otherwise jump to a tile in another row.
         stopAt(cell, true, true);
         GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
@@ -746,6 +764,96 @@ public class HomeGrid implements SettingsPanel.Host {
         int w = AppModel.cellW(ctx) * 2 + dp(GAP_DP);
         int h = AppModel.cellH(ctx) * 3 / 2;
         column.addView(cell, new LinearLayout.LayoutParams(w, h));
+    }
+
+    /** The system undid something Debloat had switched off: one amber tile above everything. */
+    private void addRestoreTile(AppModel.Item it) {
+        FrameLayout cell = newCell(it);
+        topTile = cell;
+        stopAt(cell, true, true);
+        GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[] { 0xFF9A6A12, 0xFF4A3208 });
+        card.setCornerRadius(dp(8));
+        cell.setBackground(card);
+
+        LinearLayout text = new LinearLayout(ctx);
+        text.setOrientation(LinearLayout.VERTICAL);
+        text.setGravity(Gravity.CENTER_VERTICAL);
+        text.setPadding(dp(24), dp(10), dp(24), dp(10));
+
+        TextView title = new TextView(ctx);
+        title.setText(it.label);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        text.addView(title);
+
+        TextView hint = new TextView(ctx);
+        hint.setText(ctx.getString(R.string.home_restore_hint, revertedNames()));
+        hint.setTextColor(0xE6FFFFFF);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        text.addView(hint);
+
+        cell.addView(text, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                AppModel.cellW(ctx) * 3 + dp(GAP_DP) * 2, AppModel.cellH(ctx));
+        lp.bottomMargin = dp(GAP_DP);
+        column.addView(cell, lp);
+    }
+
+    /** The reverted packages by name, up to three: "A, B and 2 more". */
+    private String revertedNames() {
+        List<String> pkgs = AppModel.reverted(ctx);
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < pkgs.size() && i < 3; i++) {
+            if (i > 0) sb.append(", ");
+            sb.append(Debloat.titleOf(pkgs.get(i)));
+        }
+        if (pkgs.size() > 3) sb.append(" and ").append(pkgs.size() - 3).append(" more");
+        return sb.toString();
+    }
+
+    /** Switch off again whatever the system switched back on; open Setup if there is no link. */
+    private void restoreReverted() {
+        List<String> pkgs = AppModel.reverted(ctx);
+        if (pkgs.isEmpty()) return;
+        if (!AdbBridge.canRun(ctx)) {
+            Toast.makeText(ctx, R.string.home_restore_failed, Toast.LENGTH_LONG).show();
+            showPanel(DebloatPanel.build(ctx, panelHost));
+            return;
+        }
+        final String[] list = pkgs.toArray(new String[pkgs.size()]);
+        String[] cmds = new String[list.length];
+        for (int i = 0; i < list.length; i++) cmds[i] = AdbBridge.disableCommand(list[i]);
+        Toast.makeText(ctx, R.string.home_connecting, Toast.LENGTH_SHORT).show();
+        AdbBridge.runRetry(cmds, new AdbBridge.Callback() {
+            public void onDone(boolean ok, String out) {
+                // Never started: nothing changed, so keep the tile and the record of what
+                // is still on, and say so. Forgetting them here would hide the problem.
+                if (!AdbBridge.ran(out)) {
+                    Toast.makeText(ctx, R.string.home_restore_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                StringBuilder kept = new StringBuilder();
+                for (int i = 0; i < list.length; i++) {
+                    boolean off = Debloat.stateOf(ctx, list[i]) == Debloat.DISABLED;
+                    Prefs.noteDisabled(ctx, list[i], off);
+                    if (!off) {
+                        if (kept.length() > 0) kept.append(", ");
+                        kept.append(Debloat.titleOf(list[i]));
+                    }
+                }
+                // Fire OS refuses some packages; the record is dropped so the tile does not
+                // come back for good, but the user is told.
+                if (kept.length() > 0) {
+                    Toast.makeText(ctx, ctx.getString(R.string.home_restore_refused, kept),
+                            Toast.LENGTH_LONG).show();
+                }
+                AppModel.reload(ctx);
+                rebuild();
+            }
+        });
     }
 
     private void addHeader(String text, boolean first) {
@@ -1048,7 +1156,7 @@ public class HomeGrid implements SettingsPanel.Host {
         if (it.icon != null) ic.setImageBitmap(it.icon);
         int isz = dp(CARD_H_DP) * 62 / 100;
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(isz, isz);
-        ilp.rightMargin = dp(9);
+        ilp.rightMargin = dp(8);
         row.addView(ic, ilp);
 
         TextView tv = new TextView(ctx);
@@ -1092,6 +1200,10 @@ public class HomeGrid implements SettingsPanel.Host {
         if (it.type == AppModel.TYPE_HEALTH) {
             logOpen(it.label);
             showPanel(HealthPanel.build(ctx, panelHost));
+            return;
+        }
+        if (it.type == AppModel.TYPE_RESTORE) {
+            restoreReverted();
             return;
         }
         if (it.type == AppModel.TYPE_LIVETV) {

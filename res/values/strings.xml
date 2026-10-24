@@ -6,6 +6,11 @@
   <string name="home_livetv">Live TV</string>
   <string name="home_livetv_hint">Press OK to watch</string>
   <string name="home_livetv_failed">Live TV is not available</string>
+  <string name="home_restore">Some changes were undone</string>
+  <string name="home_restore_hint">%1$s was switched back on. Press OK to switch it off again</string>
+  <string name="home_restore_failed">Could not reach the TV. Open Setup to connect</string>
+  <string name="home_restore_refused">Fire OS kept %1$s on</string>
+  <string name="home_connecting">Connecting to the TV...</string>
   <string name="home_sec_inputs">Inputs &amp; System</string>
   <string name="home_sec_nontv">Non-TV Applications</string>
   <string name="home_sec_tv">TV Applications</string>

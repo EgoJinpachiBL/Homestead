@@ -57,11 +57,14 @@ public final class AppModel {
     public static final int TYPE_HEALTH = 4;
     /** Fire TV Live TV (antenna/cable tuner), started through Amazon's public TuneService. */
     public static final int TYPE_LIVETV = 5;
+    /** Offers to switch off again what a system update switched back on. */
+    public static final int TYPE_RESTORE = 6;
 
     static final String LIVETV_PKG = "com.amazon.tv.livetv";
     static final String LIVETV_SVC = "com.amazon.tv.livetv.TuneService";
     /** Item.key() of the Live TV tile; also how it is stored when hidden. */
     static final String LIVETV_KEY = "sys:livetv";
+    static final String RESTORE_KEY = "sys:restore";
     static final String AMAZON_LAUNCHER = "com.amazon.tv.launcher";
     static final String AMAZON_SETTINGS = "com.amazon.tv.settings.v2";
     static final String AMAZON_HOME_CLS = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
@@ -99,6 +102,7 @@ public final class AppModel {
         public String key() {
             if (type == TYPE_INPUT) return "in:" + inputId;
             if (type == TYPE_LIVETV) return LIVETV_KEY;
+            if (type == TYPE_RESTORE) return RESTORE_KEY;
             if (type == TYPE_AMAZON_HOME) return "amz";
             if (type == TYPE_SETTINGS) return "sys:settings";
             if (type == TYPE_HEALTH) return "sys:health";
@@ -130,8 +134,12 @@ public final class AppModel {
         List<Item> out = new ArrayList<Item>(ITEMS.size());
         for (int i = 0; i < ITEMS.size(); i++) {
             Item it = ITEMS.get(i);
-            // Settings and TV Health are never hidden; they are the way to unhide.
-            if (it.type == TYPE_SETTINGS || it.type == TYPE_HEALTH) { out.add(it); continue; }
+            // Settings and TV Health are never hidden; they are the way to unhide. Nor is the
+            // restore tile, which only exists while there is something to put back.
+            if (it.type == TYPE_SETTINGS || it.type == TYPE_HEALTH || it.type == TYPE_RESTORE) {
+                out.add(it);
+                continue;
+            }
             if (!hidden.contains(it.key())) out.add(it);
         }
         return out;
@@ -170,18 +178,28 @@ public final class AppModel {
         metrics(c);
         ITEMS.clear();
 
+        if (!reverted(c).isEmpty()) {
+            Item restore = new Item();
+            restore.type = TYPE_RESTORE;
+            restore.label = c.getString(R.string.home_restore);
+            ITEMS.add(restore);
+        }
+
         loadInputs(c);
 
         // Fire OS icons are looked up by name, so a TV without one keeps the usual icon.
         boolean fire = Prefs.fireOsIcons(c);
         Drawable d;
 
-        Item amazon = new Item();
-        amazon.type = TYPE_AMAZON_HOME;
-        amazon.label = "Amazon Home";
-        d = fire ? fireOsIcon(c, AMAZON_LAUNCHER, "ic_home") : null;
-        amazon.icon = toBitmap(c, d != null ? d : appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
-        ITEMS.add(amazon);
+        // With Amazon's launcher switched off the tile would start nothing.
+        if (amazonLauncherOn(c)) {
+            Item amazon = new Item();
+            amazon.type = TYPE_AMAZON_HOME;
+            amazon.label = "Amazon Home";
+            d = fire ? fireOsIcon(c, AMAZON_LAUNCHER, "ic_home") : null;
+            amazon.icon = toBitmap(c, d != null ? d : appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
+            ITEMS.add(amazon);
+        }
 
         Item settings = new Item();
         settings.type = TYPE_SETTINGS;
@@ -265,6 +283,41 @@ public final class AppModel {
         return !signature(c).equals(lastSignature);
     }
 
+    /**
+     * Packages this app switched off that are on again, as after a system update. Empty
+     * unless the user asked to be told (Settings > System).
+     */
+    static List<String> reverted(Context c) {
+        List<String> out = new ArrayList<String>();
+        if (!Prefs.restoreWatch(c)) return out;
+        for (String pkg : Prefs.disabledByUs(c)) {
+            if (Debloat.stateOf(c, pkg) != Debloat.ENABLED) continue;
+            // Boot maintenance is about to switch these off again by itself.
+            if (autoFixPending && !Debloat.isRisky(pkg)) continue;
+            out.add(pkg);
+        }
+        Collections.sort(out);
+        return out;
+    }
+
+    /** True from boot until the unattended re-disable pass has run (HomeRedirectService). */
+    private static volatile boolean autoFixPending = false;
+
+    static void setAutoFixPending(boolean pending) { autoFixPending = pending; }
+
+    /** Whether the restore tile is in the model. */
+    public static boolean hasRestore() {
+        for (int i = 0; i < ITEMS.size(); i++) {
+            if (ITEMS.get(i).type == TYPE_RESTORE) return true;
+        }
+        return false;
+    }
+
+    /** False only when Amazon's launcher is present and switched off; unknown counts as on. */
+    static boolean amazonLauncherOn(Context c) {
+        return Debloat.stateOf(c, AMAZON_LAUNCHER) != Debloat.DISABLED;
+    }
+
     /** Launchable activities and HDMI inputs, as a string to compare between loads. */
     private static String signature(Context c) {
         List<String> parts = new ArrayList<String>();
@@ -300,6 +353,8 @@ public final class AppModel {
             parts.add("inputs failed");
         }
         if (liveTvAvailable(c)) parts.add("livetv");
+        if (amazonLauncherOn(c)) parts.add("amazonhome");
+        parts.add("reverted:" + reverted(c));
         Collections.sort(parts);
         return parts.toString();
     }
@@ -513,6 +568,7 @@ public final class AppModel {
                 return x.label.compareToIgnoreCase(y.label);
             }
             private int rank(int t) {
+                if (t == TYPE_RESTORE) return -1;
                 if (t == TYPE_LIVETV) return 0;
                 if (t == TYPE_INPUT) return 1;
                 if (t == TYPE_AMAZON_HOME || t == TYPE_SETTINGS || t == TYPE_HEALTH) return 2;
