@@ -273,6 +273,13 @@ No Gradle, no dependencies, under ten seconds:
 ./build.sh install    # and adb install -r
 ```
 
+On Windows without Git Bash, `build.ps1` does the same from PowerShell:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File build.ps1            # build + sign
+powershell -ExecutionPolicy Bypass -File build.ps1 install    # and adb install -r
+```
+
 Needs the Android SDK (`build-tools/36.1.0`, `platforms/android-34`) and a JDK. The signing
 key is **not** in this repository; `build.sh` looks for `~/.homestead-keys/` or the
 `HOMESTEAD_KEYSTORE` / `HOMESTEAD_KEYPASS` environment variables (to make your own key,
