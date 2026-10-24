@@ -149,7 +149,7 @@ public final class PhotoPanel {
                                     final long since, final long started) {
         if (BackgroundProvider.lastResultAt >= since) {
             if (BackgroundProvider.lastOk) {
-                Prefs.setBackground(c, Backgrounds.PHOTO);
+                Backgrounds.choose(c, Backgrounds.PHOTO_ID);
                 host.rebuildGrid();
                 status.setValue("set as the background");
                 status.setValueColor(OK);

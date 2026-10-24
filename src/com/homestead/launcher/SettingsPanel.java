@@ -249,16 +249,56 @@ public final class SettingsPanel {
     private static View buildLook(final Context c, final Host host, final Runnable changed) {
         final Panel p = new Panel(c, "Background", null, Panel.SHEET);
 
-        final Panel.Row bg = p.addRow("Background", Backgrounds.label(c), null);
-        final Panel.Row dim = p.addRow("Photo dimming", Backgrounds.dimLabel(c), null);
-        bg.cell.setOnClickListener(new View.OnClickListener() {
-            public void onClick(View v) {
-                Prefs.setBackground(c, Backgrounds.next(c));
-                bg.setValue(Backgrounds.label(c));
-                host.rebuildGrid();
-                changed.run();
+        // One row per look, the one in use marked. Selecting one applies it at once, and the
+        // home screen beside the page shows it.
+        p.addSectionHelp("Select one to use it. The home screen beside this page changes "
+                + "straight away.");
+        final List<Panel.Row> rows = new ArrayList<Panel.Row>();
+        final List<String> ids = new ArrayList<String>();
+        final Runnable mark = new Runnable() {
+            public void run() {
+                String now = Backgrounds.currentId(c);
+                boolean noFile = Backgrounds.photoFile(c) == null;
+                for (int i = 0; i < rows.size(); i++) {
+                    boolean on = ids.get(i).equals(now);
+                    String v = on ? "in use" : "";
+                    if (noFile && ids.get(i).equals(Backgrounds.PHOTO_ID)) {
+                        v = on ? "in use, no file yet" : "no file yet";
+                    }
+                    rows.get(i).setValue(v);
+                    rows.get(i).setValueColor(on ? IN_USE : 0xFF8FA3B8);
+                }
             }
-        });
+        };
+        for (int i = 0; i <= Backgrounds.PRESETS.length; i++) {
+            boolean photo = i == Backgrounds.PRESETS.length;
+            final Backgrounds.Preset look = photo ? Backgrounds.PHOTO_LOOK : Backgrounds.PRESETS[i];
+            final Panel.Row r = p.addRow(look.name, "", null);
+            android.graphics.Bitmap shot = photo ? Backgrounds.lastPhoto() : null;
+            r.setSwatch(shot != null
+                    ? new android.graphics.drawable.BitmapDrawable(c.getResources(), shot)
+                    : swatch(c, look));
+            r.cell.setOnClickListener(new View.OnClickListener() {
+                public void onClick(View v) {
+                    Backgrounds.choose(c, look.id);
+                    mark.run();
+                    host.rebuildGrid();
+                    changed.run();
+                }
+            });
+            rows.add(r);
+            ids.add(look.id);
+        }
+        rows.get(rows.size() - 2).setHelp("Black is for OLED screens and night viewing.");
+        rows.get(rows.size() - 1).setHelp("Choose a picture saved on the TV below (needs the "
+                + "on-device tunnel), or send a JPEG or PNG from a computer:\n\n"
+                + "adb push background.jpg /sdcard/Download/\n"
+                + "adb shell \"content write --uri content://" + BackgroundProvider.AUTHORITY
+                + "/photo < /sdcard/Download/background.jpg\"");
+        mark.run();
+
+        p.addHeader("Photo");
+        final Panel.Row dim = p.addRow("Photo dimming", Backgrounds.dimLabel(c), null);
         dim.cell.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
                 Prefs.setPhotoDim(c, (Prefs.photoDim(c) + 1) % Backgrounds.DIM_NAMES.length);
@@ -266,12 +306,6 @@ public final class SettingsPanel {
                 host.rebuildGrid();
             }
         });
-        bg.setHelp("Black is for OLED screens and night viewing. For Photo, choose a picture "
-                + "saved on the TV below (needs the on-device tunnel), or send a JPEG or PNG "
-                + "from a computer:\n\n"
-                + "adb push background.jpg /sdcard/Download/\n"
-                + "adb shell \"content write --uri content://" + BackgroundProvider.AUTHORITY
-                + "/photo < /sdcard/Download/background.jpg\"");
         dim.setHelp("Dimming darkens the photo so the labels stay readable.");
 
         p.addRow("Choose a photo on this TV", "", new Runnable() {
@@ -282,7 +316,28 @@ public final class SettingsPanel {
         p.addRow("Back", "", new Runnable() {
             public void run() { host.closePanel(); }
         });
+
+        // Start on the look in use. showPanel focuses the first row once the page is up,
+        // so this goes one step after that.
+        final View start = rows.get(Math.max(0, ids.indexOf(Backgrounds.currentId(c)))).cell;
+        p.root.post(new Runnable() {
+            public void run() {
+                p.root.post(new Runnable() { public void run() { start.requestFocus(); } });
+            }
+        });
         return p.root;
+    }
+
+    private static final int IN_USE = 0xFFA7D28F;
+
+    /** A preset's colours as a small rounded sample, edged so dark ones show on the page. */
+    private static android.graphics.drawable.Drawable swatch(Context c, Backgrounds.Preset look) {
+        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable(
+                android.graphics.drawable.GradientDrawable.Orientation.BL_TR,
+                new int[]{ look.from, look.to });
+        d.setCornerRadius(AppModel.dp(c, 5));
+        d.setStroke(AppModel.dp(c, 1), 0x59FFFFFF);
+        return d;
     }
 
     // ---------------------------------------------------------------- hidden list

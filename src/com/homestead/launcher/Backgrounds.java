@@ -41,34 +41,39 @@ final class Backgrounds {
     private static final String TAG = "Homestead";
 
     static final class Preset {
+        /** What the setting saves. Never change or reuse one: users' choices are stored as it. */
+        final String id;
         final String name;
         final int from, to;      // bottom-left to top-right; equal for a solid colour
         final int text;          // section headers and the clock
         final int ring;          // the focus ring around a tile
         /** A faint edge on every tile, so dark banners do not merge into a dark background. 0 for none. */
         final int outline;
-        Preset(String name, int from, int to, int text, int ring, int outline) {
-            this.name = name; this.from = from; this.to = to; this.text = text; this.ring = ring;
+        Preset(String id, String name, int from, int to, int text, int ring, int outline) {
+            this.id = id; this.name = name; this.from = from; this.to = to; this.text = text; this.ring = ring;
             this.outline = outline;
         }
     }
 
     private static final int EDGE = 0x3DFFFFFF;
 
-    /** Index 0 is the original look and the default. */
+    /**
+     * In the order the Settings page lists them. Index 0 is the original look and the default.
+     * The setting is saved by id, so presets can be added or moved without changing anyone's.
+     */
     static final Preset[] PRESETS = {
-            new Preset("Sky",      0xFF6991C7, 0xFFA3BDED, 0xFFFFFFFF, 0xFF2C2C2C, 0),
-            new Preset("Midnight", 0xFF0B1F38, 0xFF1D4E86, 0xFFFFFFFF, 0xFFE6EEF8, EDGE),
-            new Preset("Charcoal", 0xFF1A1B1F, 0xFF3A3C44, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
-            new Preset("Dusk",     0xFF2A1B3D, 0xFF6B3E7C, 0xFFFFFFFF, 0xFFF0E6F5, EDGE),
-            new Preset("Black",    0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
+            new Preset("sky",      "Sky",      0xFF6991C7, 0xFFA3BDED, 0xFFFFFFFF, 0xFF2C2C2C, 0),
+            new Preset("midnight", "Midnight", 0xFF0B1F38, 0xFF1D4E86, 0xFFFFFFFF, 0xFFE6EEF8, EDGE),
+            new Preset("charcoal", "Charcoal", 0xFF1A1B1F, 0xFF3A3C44, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
+            new Preset("dusk",     "Dusk",     0xFF2A1B3D, 0xFF6B3E7C, 0xFFFFFFFF, 0xFFF0E6F5, EDGE),
+            new Preset("black",    "Black",    0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
     };
 
-    /** The setting value for the photo: the slot after the last preset. */
-    static final int PHOTO = PRESETS.length;
+    /** The setting value for the photo. */
+    static final String PHOTO_ID = "photo";
     /** The photo's text and ring colours, and its look until the photo has loaded. */
     static final Preset PHOTO_LOOK =
-            new Preset("Photo", 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFFE6E6E6, EDGE);
+            new Preset(PHOTO_ID, "Photo", 0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFFE6E6E6, EDGE);
 
     private static final String[] FILES = { "background.jpg", "background.jpeg", "background.png" };
     /** Bigger files are ignored rather than decoded. */
@@ -86,19 +91,43 @@ final class Backgrounds {
 
     private Backgrounds() { }
 
-    static Preset current(Context c) {
-        int i = Prefs.background(c);
-        if (i == PHOTO) return PHOTO_LOOK;
-        if (i < 0 || i > PHOTO) i = 0;
-        return PRESETS[i];
+    /**
+     * Up to 1.6.4 the setting was a position in this list, the presets then the photo.
+     * Fixed for good: it is how a value saved then is read, whatever PRESETS holds now.
+     */
+    private static final String[] BY_OLD_POSITION =
+            { "sky", "midnight", "charcoal", "dusk", "black", PHOTO_ID };
+
+    /** The chosen look's id. A choice from before ids is read through its old position. */
+    static String currentId(Context c) {
+        String id = Prefs.backgroundId(c);
+        if (id != null) return id;
+        int i = Prefs.backgroundPosition(c);
+        // Out of range showed the default then too.
+        return (i >= 0 && i < BY_OLD_POSITION.length) ? BY_OLD_POSITION[i] : PRESETS[0].id;
     }
 
-    static boolean photoChosen(Context c) { return Prefs.background(c) == PHOTO; }
+    static Preset current(Context c) {
+        String id = currentId(c);
+        if (PHOTO_ID.equals(id)) return PHOTO_LOOK;
+        for (int i = 0; i < PRESETS.length; i++) {
+            if (PRESETS[i].id.equals(id)) return PRESETS[i];
+        }
+        return PRESETS[0];
+    }
 
-    /** The next choice in the Settings cycle: the presets, then the photo. */
-    static int next(Context c) {
-        int i = Prefs.background(c);
-        return (i >= PHOTO || i < 0) ? 0 : i + 1;
+    static boolean photoChosen(Context c) { return PHOTO_ID.equals(currentId(c)); }
+
+    /**
+     * Save a choice. Its old position is saved too where it had one, so going back to a
+     * version from before ids keeps it.
+     */
+    static void choose(Context c, String id) {
+        int old = -1;
+        for (int i = 0; i < BY_OLD_POSITION.length; i++) {
+            if (BY_OLD_POSITION[i].equals(id)) old = i;
+        }
+        Prefs.setBackground(c, id, old);
     }
 
     /** The value shown on the Settings row. */

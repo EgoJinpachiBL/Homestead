@@ -554,6 +554,16 @@ public class Panel {
             return this;
         }
 
+        /** A small sample before the label, for a row that picks a look. */
+        public Row setSwatch(android.graphics.drawable.Drawable d) {
+            View s = new View(panel.ctx);
+            s.setBackground(d);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(panel.dp(36), panel.dp(24));
+            lp.rightMargin = panel.dp(14);
+            ((LinearLayout) label.getParent()).addView(s, 0, lp);
+            return this;
+        }
+
         void paint() {
             if (status) {
                 value.setTextColor(valueColor);
