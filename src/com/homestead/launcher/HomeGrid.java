@@ -101,7 +101,6 @@ public class HomeGrid implements SettingsPanel.Host {
     /** AppModel.order() as of the last build, to spot a re-sort done by the other grid. */
     private String builtOrder;
     private boolean restoreShown;
-    private boolean restoreAppeared;
     /** What holds the restore tile; it slides the tile out when the shared clock runs out. */
     private FrameLayout restoreSlot;
     private final Runnable restoreTimeUp = new Runnable() {
@@ -605,8 +604,9 @@ public class HomeGrid implements SettingsPanel.Host {
             if (keep == null || !selectKey(keep)) takeFocus();
         }
         applyScroll(y, rx);
-        // The tile is the one thing worth seeing: move to it the moment it appears.
-        if (restoreAppeared && panels.isEmpty() && selectKey(AppModel.RESTORE_KEY)) keepAtTop();
+        // A restore tile that appears while someone is browsing does not take the focus:
+        // a Select meant for the tile under the remote would land on it. It is at the top,
+        // and a fresh Home press selects it (takeStartFocus()).
     }
 
     // ---------------------------------------------------------------- layout
@@ -667,7 +667,6 @@ public class HomeGrid implements SettingsPanel.Host {
         topTile = null;
 
         List<AppModel.Item> all = AppModel.visibleItems(ctx);
-        boolean hadRestore = restoreShown;
         restoreShown = false;
         for (int i = 0; i < all.size(); i++) {
             AppModel.Item it = all.get(i);
@@ -687,7 +686,6 @@ public class HomeGrid implements SettingsPanel.Host {
             }
         }
 
-        restoreAppeared = restoreShown && !hadRestore;
         // Settings and TV Health survive the section being switched off.
         if (!Prefs.showInputs(ctx)) {
             List<AppModel.Item> keep = new ArrayList<AppModel.Item>();
@@ -817,13 +815,21 @@ public class HomeGrid implements SettingsPanel.Host {
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.CENTER_VERTICAL));
 
-        // The clock starts when a window really shows the tile: the activity's window can be
-        // built while it is in the background.
+        // The clock starts when a window really shows the tile, scrolled into view: the
+        // activity's window can be built while it is in the background, and the page can
+        // be scrolled down when the tile appears.
+        final android.view.ViewTreeObserver.OnScrollChangedListener inView =
+                new android.view.ViewTreeObserver.OnScrollChangedListener() {
+                    public void onScrollChanged() {
+                        if (!AppModel.restoreClockRunning()) armRestore();
+                    }
+                };
         final FrameLayout slot = new FrameLayout(ctx) {
             @Override protected void onAttachedToWindow() {
                 super.onAttachedToWindow();
                 // Back on screen after its time ran out elsewhere: gone before it is drawn.
                 if (!AppModel.restorePopupLive()) { dropRestore(); return; }
+                getViewTreeObserver().addOnScrollChangedListener(inView);
                 post(new Runnable() { public void run() { armRestore(); } });
             }
             @Override protected void onWindowVisibilityChanged(int v) {
@@ -834,6 +840,7 @@ public class HomeGrid implements SettingsPanel.Host {
             }
             @Override protected void onDetachedFromWindow() {
                 removeCallbacks(restoreTimeUp);
+                getViewTreeObserver().removeOnScrollChangedListener(inView);
                 super.onDetachedFromWindow();
             }
         };
@@ -855,6 +862,12 @@ public class HomeGrid implements SettingsPanel.Host {
         if (slot == null || slot.getParent() == null) return;
         if (slot.getWindowVisibility() != View.VISIBLE || !slot.isShown()) return;
         if (!panels.isEmpty() && !AppModel.restoreClockRunning()) return;
+        // Not counted until most of it is on screen.
+        android.graphics.Rect seen = new android.graphics.Rect();
+        if (!AppModel.restoreClockRunning()
+                && (!slot.getGlobalVisibleRect(seen) || seen.height() < slot.getHeight() / 2)) {
+            return;
+        }
         long left = AppModel.startRestorePopup();
         android.util.Log.i("Homestead", "restore tile on screen ("
                 + ctx.getClass().getSimpleName() + "), " + left + " ms left");
@@ -911,7 +924,12 @@ public class HomeGrid implements SettingsPanel.Host {
         a.addListener(new android.animation.AnimatorListenerAdapter() {
             @Override public void onAnimationEnd(android.animation.Animator an) {
                 // The model no longer offers the tile, so this drops the empty slot.
-                if (slot.getParent() == column) rebuild();
+                if (slot.getParent() != column) return;
+                // Seen at the top of the page, it leaves the page at the top: the rows that
+                // moved up would otherwise sit under the edge with their header cut off.
+                boolean atTop = scroll.getScrollY() < h;
+                rebuild();
+                if (atTop && panels.isEmpty()) keepAtTop();
             }
         });
         a.start();

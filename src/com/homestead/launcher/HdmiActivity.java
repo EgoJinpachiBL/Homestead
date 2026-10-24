@@ -175,6 +175,19 @@ public class HdmiActivity extends Activity {
         if (isFinishing()) return;
         settled = true;
         handler.removeCallbacks(timeout);
+        // Amazon's Inputs screen lives in its launcher; with that switched off there is
+        // nowhere to hand over to, so say so instead of closing on a blank screen.
+        if (!AppModel.amazonLauncherOn(this)) {
+            Log.w(TAG, "fallback: Amazon's launcher is off, no Inputs screen");
+            if (status != null) {
+                status.setVisibility(View.VISIBLE);
+                status.setText("This input could not be opened");
+            }
+            handler.postDelayed(new Runnable() {
+                public void run() { finish(); }
+            }, 4000L);
+            return;
+        }
         try {
             HomeRedirectService.suspend(15000L);
             Intent i = new Intent("com.amazon.tv.action.NAVIGATE_TO_INPUTS");
