@@ -53,6 +53,7 @@ public class HomeRedirectService extends AccessibilityService {
 
     private static final String TAG = "Homestead";
     private static final String AMAZON = "com.amazon.tv.launcher";
+    private static final String SYSTEM_UI = "com.android.systemui";
 
     /** Ignores duplicate window events from a single transition. */
     private static final long DEBOUNCE_MS = 350L;
@@ -707,6 +708,13 @@ public class HomeRedirectService extends AccessibilityService {
         if (e.getEventType() != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return;
         CharSequence p = e.getPackageName();
         if (p == null) return;
+        // System UI's panels, such as the volume bar, sit over whatever is in front without
+        // replacing it: not a sign that another app came up. Its screens (the USB debugging
+        // prompt) still count, so the cover does not hide them.
+        if (SYSTEM_UI.contentEquals(p)) {
+            CharSequence c = e.getClassName();
+            if (c == null || !c.toString().endsWith("Activity")) return;
+        }
         lastForeground = p.toString();
 
         if (isSettingsWindow(p, e.getClassName())) {
