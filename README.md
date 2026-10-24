@@ -24,6 +24,9 @@ Both pictures are from the same TV, a few minutes apart.
 - **Hide anything** you do not want to see: press MENU on a tile, or hold Select.
 - **Pick a background** in Settings: the blue gradient, a few darker ones, plain black for
   OLED screens and night viewing, or [your own photo](#your-own-background-photo).
+- **Optional extras** on the Settings → Home screen page, all off until you switch them on: a
+  greeting and the date at the top, non-TV apps as wide tiles, and Fire TV's own icons for
+  Amazon Home, Settings and TV Health.
 - **Settings opens over the home screen**, so changes to the background, columns, clock and
   sections show behind it as you make them. Larger pages explain the selected row beside
   the list.
@@ -161,8 +164,8 @@ adb push background.jpg /sdcard/Download/
 adb shell "content write --uri content://com.homestead.launcher.background/photo < /sdcard/Download/background.jpg"
 ```
 
-Then open Settings → **Background** and select the **Background** row until it says
-**Photo**. Any size or shape works: the picture
+Then open Settings → **Background** and select **Photo** in the list. Any size or shape
+works: the picture
 is scaled and cropped to fill the screen, and only that screen-sized copy is kept in
 memory. **Photo dimming** darkens it (Off, Light or Dark) so the labels stay readable;
 Light is the default.
