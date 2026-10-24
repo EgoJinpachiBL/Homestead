@@ -86,6 +86,10 @@ public class HomeGrid implements SettingsPanel.Host {
     private final ScrollView scroll;
     private final LinearLayout column;
     private final TextView clock;
+    /** Greeting and date at the top left; fixed, so they stay put while the grid scrolls. */
+    private final LinearLayout head;
+    private final TextView greet;
+    private final TextView date;
 
     private final Map<String, View> cellsByKey = new HashMap<String, View>();
     /** The horizontally scrolling section rows, in build order. */
@@ -204,6 +208,23 @@ public class HomeGrid implements SettingsPanel.Host {
         clp.rightMargin = dp(33);
         root.addView(clock, clp);
 
+        head = new LinearLayout(c);
+        head.setOrientation(LinearLayout.VERTICAL);
+        greet = new TextView(c);
+        greet.setTextSize(TypedValue.COMPLEX_UNIT_SP, 26);
+        greet.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        head.addView(greet);
+        date = new TextView(c);
+        date.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        date.setAlpha(0.8f);
+        head.addView(date);
+        FrameLayout.LayoutParams hlp = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP | Gravity.LEFT);
+        hlp.topMargin = dp(14);
+        hlp.leftMargin = dp(MARGIN_DP);
+        root.addView(head, hlp);
+
         AppModel.ensureLoaded(c);
         Backgrounds.ensureFolder(c);
         applyBackground();
@@ -247,6 +268,8 @@ public class HomeGrid implements SettingsPanel.Host {
         root.setBackground(photo != null ? Backgrounds.photoDrawable(ctx, photo)
                 : Backgrounds.drawable(p));
         paintText(clock);
+        paintText(greet);
+        paintText(date);
         for (int i = 0; i < column.getChildCount(); i++) {
             View v = column.getChildAt(i);
             if (v instanceof TextView) paintText((TextView) v);
@@ -267,10 +290,40 @@ public class HomeGrid implements SettingsPanel.Host {
     // ---------------------------------------------------------------- public API
 
     public void updateClock() {
+        updateHead();
         int mode = Prefs.clockMode(ctx);
         if (mode == Prefs.CLOCK_OFF) { clock.setText(""); return; }
         String fmt = (mode == Prefs.CLOCK_12H) ? "h:mm a" : "HH:mm";
         clock.setText(new SimpleDateFormat(fmt, Locale.getDefault()).format(new Date()));
+    }
+
+    /** Greeting and date, each its own setting; the grid moves down while either shows. */
+    private void updateHead() {
+        Date now = new Date();
+        boolean g = Prefs.greeting(ctx);
+        int df = Prefs.dateFormat(ctx);
+        if (g) {
+            int h = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY);
+            greet.setText(h >= 5 && h < 12 ? R.string.home_greet_morning
+                    : h >= 12 && h < 18 ? R.string.home_greet_afternoon : R.string.home_greet_evening);
+        }
+        greet.setVisibility(g ? View.VISIBLE : View.GONE);
+        if (df == Prefs.DATE_LONG) {
+            String pat = android.text.format.DateFormat.getBestDateTimePattern(
+                    Locale.getDefault(), "EEEEdMMMM");
+            date.setText(new SimpleDateFormat(pat, Locale.getDefault()).format(now));
+        } else if (df == Prefs.DATE_SHORT) {
+            date.setText(android.text.format.DateFormat.getDateFormat(ctx).format(now));
+        }
+        date.setVisibility(df != Prefs.DATE_OFF ? View.VISIBLE : View.GONE);
+        boolean show = g || df != Prefs.DATE_OFF;
+        head.setVisibility(show ? View.VISIBLE : View.GONE);
+        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) scroll.getLayoutParams();
+        int top = show ? dp(g && df != Prefs.DATE_OFF ? 44 : 22) : 0;
+        if (lp.topMargin != top) {
+            lp.topMargin = top;
+            scroll.setLayoutParams(lp);
+        }
     }
 
     /** Focus for a fresh Home press: Live TV when it comes first, else as takeFocus(). */
@@ -536,6 +589,7 @@ public class HomeGrid implements SettingsPanel.Host {
     private void build() {
         builtOrder = AppModel.order();
         builtGen = layoutGen;
+        updateClock();
         try {
             buildSections();
         } catch (Throwable t) {
@@ -628,11 +682,11 @@ public class HomeGrid implements SettingsPanel.Host {
             if (liveTv != null)    { addLiveTvTile(liveTv); first = false; }
             if (!tv.isEmpty())     { addHeader(tvTitle, first); first = false; addTileGrid(tv); }
             if (!inputs.isEmpty()) { addHeader(inputsTitle, first); first = false; addCardRow(inputs); }
-            if (!nonTv.isEmpty())  { addHeader(nonTvTitle, first); addCardRow(nonTv); }
+            if (!nonTv.isEmpty())  { addHeader(nonTvTitle, first); addNonTv(nonTv); }
             return;
         }
         if (!inputs.isEmpty()) { addHeader(inputsTitle, first); first = false; addCardRow(inputs); }
-        if (!nonTv.isEmpty())  { addHeader(nonTvTitle, first); first = false; addCardRow(nonTv); }
+        if (!nonTv.isEmpty())  { addHeader(nonTvTitle, first); first = false; addNonTv(nonTv); }
         if (!tv.isEmpty())     { addHeader(tvTitle, first); addTileGrid(tv); }
     }
 
@@ -683,6 +737,13 @@ public class HomeGrid implements SettingsPanel.Host {
         lp.topMargin = first ? 0 : dp(HEADER_TOP_DP);
         lp.bottomMargin = dp(HEADER_BOTTOM_DP);
         column.addView(h, lp);
+    }
+
+    /** Cards, or banner tiles made from the icons when "Wide tiles" is on (AppModel builds them). */
+    private void addNonTv(List<AppModel.Item> items) {
+        // Until the model reloads after the switch, the tiles are not built yet.
+        if (Prefs.nonTvWide(ctx) && items.get(0).banner != null) addTileGrid(items);
+        else addCardRow(items);
     }
 
     /**
