@@ -262,7 +262,16 @@ public class HomeRedirectService extends AccessibilityService {
      * too; other uids, such as Settings during boot, do not.
      */
     private void onHomeKey(int uid) {
+        // Fire OS 8 opens Settings by starting HOME from the settings app, then the
+        // launcher's own settings page: not a Home press.
+        if (isSettingsUid(uid)) {
+            enterSettings("settings app started HOME on its way to Settings");
+            return;
+        }
         boolean system = uid == android.os.Process.SYSTEM_UID || uid == 0;
+        // A real press (from the system) always counts, even while Settings is opening.
+        if (!system && SystemClock.elapsedRealtime() < settingsUntil) return;
+        if (system) settingsUntil = 0L;
         if (!system && !isForegroundApp(uid)) return;
         long now = SystemClock.elapsedRealtime();
         // A deliberate Home press ends any pause, such as the Amazon Home tile's.
@@ -276,6 +285,43 @@ public class HomeRedirectService extends AccessibilityService {
             if (!home.isPanelOpen()) home.takeStartFocus();
         }
         attach();
+    }
+
+    /** Amazon's settings app, and its uid once looked up. */
+    private static final String SETTINGS_PKG = "com.amazon.tv.settings.v2";
+    private int settingsUid = -1;
+    /** Until then, Amazon home windows and HOME starts are the way into Settings: no redirect. */
+    private long settingsUntil;
+
+    private boolean isSettingsUid(int uid) {
+        if (settingsUid < 0) {
+            try {
+                settingsUid = getPackageManager().getApplicationInfo(SETTINGS_PKG, 0).uid;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+        return uid == settingsUid;
+    }
+
+    /** A settings page of Amazon's (in its settings app or its launcher) is coming up. */
+    private static boolean isSettingsWindow(CharSequence pkg, CharSequence cls) {
+        if (pkg != null && pkg.toString().startsWith("com.amazon.tv.settings")) return true;
+        return AMAZON.contentEquals(pkg) && cls != null && cls.toString().contains("Settings");
+    }
+
+    /**
+     * Stand down for Settings: no redirect for a few seconds, no queued handoff, and an
+     * overlay that is up is lifted so the settings page shows.
+     */
+    private void enterSettings(String why) {
+        settingsUntil = SystemClock.elapsedRealtime() + 3000L;
+        cancelPendingOpen();
+        if (attached != null) {
+            Log.i(TAG, why + ", removing overlay");
+            cancelHide();
+            revealSoon();
+        }
     }
 
     private boolean isForegroundApp(int uid) {
@@ -657,6 +703,11 @@ public class HomeRedirectService extends AccessibilityService {
         if (p == null) return;
         lastForeground = p.toString();
 
+        if (isSettingsWindow(p, e.getClassName())) {
+            enterSettings("Amazon settings in front");
+            return;
+        }
+
         // Another app took the screen: remove the overlay so it does not cover it.
         if (!AMAZON.contentEquals(p)) {
             boolean ours = getPackageName().contentEquals(p);
@@ -678,7 +729,7 @@ public class HomeRedirectService extends AccessibilityService {
         }
 
         long now = SystemClock.elapsedRealtime();
-        if (now < suspendUntil) return;
+        if (now < suspendUntil || now < settingsUntil) return;
 
         // Amazon's launcher can emit a second window event for a single Home press, so a
         // double press cannot be detected reliably; the "Amazon Home" tile is the way out.
