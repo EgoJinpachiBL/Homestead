@@ -135,8 +135,13 @@ public final class AppModel {
         for (int i = 0; i < ITEMS.size(); i++) {
             Item it = ITEMS.get(i);
             // Settings and TV Health are never hidden; they are the way to unhide. Nor is the
-            // restore tile, which only exists while there is something to put back.
-            if (it.type == TYPE_SETTINGS || it.type == TYPE_HEALTH || it.type == TYPE_RESTORE) {
+            // restore tile, which only exists while there is something to put back, and only
+            // until its time on screen is up.
+            if (it.type == TYPE_RESTORE) {
+                if (restorePopupLive()) out.add(it);
+                continue;
+            }
+            if (it.type == TYPE_SETTINGS || it.type == TYPE_HEALTH) {
                 out.add(it);
                 continue;
             }
@@ -178,7 +183,9 @@ public final class AppModel {
         metrics(c);
         ITEMS.clear();
 
-        if (!reverted(c).isEmpty()) {
+        List<String> rev = reverted(c);
+        notePopup(rev.isEmpty() ? null : rev.toString());
+        if (!rev.isEmpty()) {
             Item restore = new Item();
             restore.type = TYPE_RESTORE;
             restore.label = c.getString(R.string.home_restore);
@@ -304,6 +311,40 @@ public final class AppModel {
     private static volatile boolean autoFixPending = false;
 
     static void setAutoFixPending(boolean pending) { autoFixPending = pending; }
+
+    /** How long the restore tile stays up once it is on screen, before it slides out. */
+    static final long RESTORE_SHOW_MS = 10000L;
+
+    /**
+     * The reverted set the restore tile is about, and the uptime its time on screen ends (0
+     * until a grid first shows it). One clock for both grids, so the overlay and the
+     * activity slide it out together. Kept in memory: the tile comes back for a new set, or
+     * after a restart.
+     */
+    private static String popupSet;
+    private static long popupUntil;
+
+    private static void notePopup(String set) {
+        if (set != null && set.equals(popupSet)) return;
+        popupSet = set;
+        popupUntil = 0;
+    }
+
+    /** The restore tile is owed time on screen: something to put back, and not yet timed out. */
+    static boolean restorePopupLive() {
+        return popupSet != null
+                && (popupUntil == 0 || android.os.SystemClock.uptimeMillis() < popupUntil);
+    }
+
+    /** The tile has been on screen somewhere, so its time is counting down. */
+    static boolean restoreClockRunning() { return popupUntil != 0; }
+
+    /** Start the shared clock the first time a grid shows the tile. @return ms left. */
+    static long startRestorePopup() {
+        long now = android.os.SystemClock.uptimeMillis();
+        if (popupUntil == 0) popupUntil = now + RESTORE_SHOW_MS;
+        return popupUntil - now;
+    }
 
     /** Whether the restore tile is in the model. */
     public static boolean hasRestore() {

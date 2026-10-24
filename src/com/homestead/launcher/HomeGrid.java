@@ -102,6 +102,11 @@ public class HomeGrid implements SettingsPanel.Host {
     private String builtOrder;
     private boolean restoreShown;
     private boolean restoreAppeared;
+    /** What holds the restore tile; it slides the tile out when the shared clock runs out. */
+    private FrameLayout restoreSlot;
+    private final Runnable restoreTimeUp = new Runnable() {
+        public void run() { slideOutRestore(); }
+    };
     /**
      * Bumped whenever either grid changes a layout setting or hides a tile; each grid builds
      * against the value it saw, so the other one can tell it is out of date.
@@ -340,7 +345,7 @@ public class HomeGrid implements SettingsPanel.Host {
     /** Focus for a fresh Home press: Live TV when it comes first, else as takeFocus(). */
     public void takeStartFocus() {
         // The restore tile is the one thing worth seeing before anything else.
-        if (AppModel.hasRestore() && selectKey(AppModel.RESTORE_KEY)) {
+        if (AppModel.restorePopupLive() && selectKey(AppModel.RESTORE_KEY)) {
             scroll.scrollTo(0, 0);
             return;
         }
@@ -434,6 +439,11 @@ public class HomeGrid implements SettingsPanel.Host {
         if (panels.isEmpty()) {
             scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
             takeFocus();
+            // The restore tile was under the page; its time on screen starts now.
+            if (restoreSlot != null) {
+                if (AppModel.restorePopupLive()) armRestore();
+                else dropRestore();
+            }
         } else {
             final View below = panels.get(panels.size() - 1);
             below.setVisibility(View.VISIBLE);
@@ -624,6 +634,7 @@ public class HomeGrid implements SettingsPanel.Host {
         rows.clear();
         focusedCell = null;
         topTile = null;
+        restoreSlot = null;
 
         List<AppModel.Item> safe = new ArrayList<AppModel.Item>();
         List<AppModel.Item> all = AppModel.allItems();
@@ -643,6 +654,7 @@ public class HomeGrid implements SettingsPanel.Host {
         cellsByKey.clear();
         rows.clear();
         focusedCell = null;
+        restoreSlot = null;
 
         List<AppModel.Item> inputs = new ArrayList<AppModel.Item>();
         List<AppModel.Item> nonTv = new ArrayList<AppModel.Item>();
@@ -796,10 +808,105 @@ public class HomeGrid implements SettingsPanel.Host {
 
         cell.addView(text, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        // The clock starts when a window really shows the tile: the activity's window can be
+        // built while it is in the background.
+        final FrameLayout slot = new FrameLayout(ctx) {
+            @Override protected void onAttachedToWindow() {
+                super.onAttachedToWindow();
+                // Back on screen after its time ran out elsewhere: gone before it is drawn.
+                if (!AppModel.restorePopupLive()) { dropRestore(); return; }
+                post(new Runnable() { public void run() { armRestore(); } });
+            }
+            @Override protected void onWindowVisibilityChanged(int v) {
+                super.onWindowVisibilityChanged(v);
+                if (v != View.VISIBLE) removeCallbacks(restoreTimeUp);
+                else if (!AppModel.restorePopupLive()) dropRestore();
+                else armRestore();
+            }
+            @Override protected void onDetachedFromWindow() {
+                removeCallbacks(restoreTimeUp);
+                super.onDetachedFromWindow();
+            }
+        };
+        slot.setClipChildren(false);
+        slot.addView(cell, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        restoreSlot = slot;
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                 AppModel.cellW(ctx) * 3 + dp(GAP_DP) * 2, AppModel.cellH(ctx));
         lp.bottomMargin = dp(GAP_DP);
-        column.addView(cell, lp);
+        column.addView(slot, lp);
+    }
+
+    /** The tile is on screen here: start the shared clock if this is the first sight, and
+     *  slide out when it runs out, at the same moment as the other grid. A page open over
+     *  the grid hides it, so the clock waits for that too (closePanel() arms it again). */
+    private void armRestore() {
+        FrameLayout slot = restoreSlot;
+        if (slot == null || slot.getParent() == null) return;
+        if (slot.getWindowVisibility() != View.VISIBLE || !slot.isShown()) return;
+        if (!panels.isEmpty() && !AppModel.restoreClockRunning()) return;
+        long left = AppModel.startRestorePopup();
+        android.util.Log.i("Homestead", "restore tile on screen ("
+                + ctx.getClass().getSimpleName() + "), " + left + " ms left");
+        slot.removeCallbacks(restoreTimeUp);
+        slot.postDelayed(restoreTimeUp, Math.max(0L, left));
+    }
+
+    /** Its time ran out while this grid was not showing it: take it out with no animation. */
+    private void dropRestore() {
+        FrameLayout slot = restoreSlot;
+        if (slot == null) return;
+        restoreSlot = null;
+        cellsByKey.remove(AppModel.RESTORE_KEY);
+        slot.setVisibility(View.GONE);
+        root.post(new Runnable() {
+            public void run() { rebuild(); }
+        });
+    }
+
+    /** Time is up: the tile slides out to the left, then the rows below close the gap. */
+    private void slideOutRestore() {
+        final FrameLayout slot = restoreSlot;
+        if (slot == null || slot.getParent() == null || slot.getChildCount() == 0) return;
+        restoreSlot = null;
+        android.util.Log.i("Homestead", "restore tile time up, sliding out ("
+                + ctx.getClass().getSimpleName() + ")");
+        final View tile = slot.getChildAt(0);
+        // Out of reach from here on, so Select cannot land on a tile that is leaving.
+        cellsByKey.remove(AppModel.RESTORE_KEY);
+        boolean had = tile.hasFocus();
+        tile.setFocusable(false);
+        if (had && panels.isEmpty()) takeStartFocus();
+        tile.animate().translationX(-(slot.getWidth() + dp(MARGIN_DP))).alpha(0f)
+                .setDuration(350L)
+                .withEndAction(new Runnable() {
+                    public void run() { collapseRestore(slot); }
+                });
+    }
+
+    private void collapseRestore(final FrameLayout slot) {
+        final LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) slot.getLayoutParams();
+        final int h = slot.getHeight();
+        final int m = lp.bottomMargin;
+        android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(1f, 0f);
+        a.setDuration(250L);
+        a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator va) {
+                float f = (Float) va.getAnimatedValue();
+                lp.height = Math.round(h * f);
+                lp.bottomMargin = Math.round(m * f);
+                slot.setLayoutParams(lp);
+            }
+        });
+        a.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator an) {
+                // The model no longer offers the tile, so this drops the empty slot.
+                if (slot.getParent() == column) rebuild();
+            }
+        });
+        a.start();
     }
 
     /** The reverted packages by name, up to three: "A, B and 2 more". */
