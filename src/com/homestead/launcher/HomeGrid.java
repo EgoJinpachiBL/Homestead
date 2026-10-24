@@ -791,7 +791,7 @@ public class HomeGrid implements SettingsPanel.Host {
         LinearLayout text = new LinearLayout(ctx);
         text.setOrientation(LinearLayout.VERTICAL);
         text.setGravity(Gravity.CENTER_VERTICAL);
-        text.setPadding(dp(24), dp(10), dp(24), dp(10));
+        text.setPadding(dp(24), dp(12), dp(24), dp(12));
 
         TextView title = new TextView(ctx);
         title.setText(it.label);
@@ -800,14 +800,22 @@ public class HomeGrid implements SettingsPanel.Host {
         title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
         text.addView(title);
 
+        List<String> pkgs = AppModel.reverted(ctx);
         TextView hint = new TextView(ctx);
-        hint.setText(ctx.getString(R.string.home_restore_hint, revertedNames()));
+        hint.setText(ctx.getString(pkgs.size() == 1 ? R.string.home_restore_hint_one
+                : R.string.home_restore_hint_many, revertedNames(pkgs)));
         hint.setTextColor(0xE6FFFFFF);
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        hint.setMaxLines(2);
+        hint.setEllipsize(android.text.TextUtils.TruncateAt.END);
         text.addView(hint);
 
+        // Two lines of hint do not fit a banner cell's height at every density, so the tile
+        // grows to its text and is never shorter than a cell.
+        cell.setMinimumHeight(AppModel.cellH(ctx));
         cell.addView(text, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL));
 
         // The clock starts when a window really shows the tile: the activity's window can be
         // built while it is in the background.
@@ -831,10 +839,10 @@ public class HomeGrid implements SettingsPanel.Host {
         };
         slot.setClipChildren(false);
         slot.addView(cell, new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         restoreSlot = slot;
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
-                AppModel.cellW(ctx) * 3 + dp(GAP_DP) * 2, AppModel.cellH(ctx));
+                AppModel.cellW(ctx) * 3 + dp(GAP_DP) * 2, ViewGroup.LayoutParams.WRAP_CONTENT);
         lp.bottomMargin = dp(GAP_DP);
         column.addView(slot, lp);
     }
@@ -909,16 +917,17 @@ public class HomeGrid implements SettingsPanel.Host {
         a.start();
     }
 
-    /** The reverted packages by name, up to three: "A, B and 2 more". */
-    private String revertedNames() {
-        List<String> pkgs = AppModel.reverted(ctx);
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < pkgs.size() && i < 3; i++) {
-            if (i > 0) sb.append(", ");
-            sb.append(Debloat.titleOf(pkgs.get(i)));
-        }
-        if (pkgs.size() > 3) sb.append(" and ").append(pkgs.size() - 3).append(" more");
-        return sb.toString();
+    /** The reverted packages by name, short enough for the tile: "A", "A and B",
+     *  "A, B and C", or "A, B and 4 more". */
+    private static String revertedNames(List<String> pkgs) {
+        int n = pkgs.size();
+        if (n == 0) return "";
+        String a = Debloat.titleOf(pkgs.get(0));
+        if (n == 1) return a;
+        String b = Debloat.titleOf(pkgs.get(1));
+        if (n == 2) return a + " and " + b;
+        if (n == 3) return a + ", " + b + " and " + Debloat.titleOf(pkgs.get(2));
+        return a + ", " + b + " and " + (n - 2) + " more";
     }
 
     /** Switch off again whatever the system switched back on; open Setup if there is no link. */

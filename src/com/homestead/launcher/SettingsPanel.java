@@ -117,10 +117,8 @@ public final class SettingsPanel {
                 host.rebuildGrid();
             }
         });
-        watch.setHelp("A system update can switch back on packages Debloat turned off, "
-                + "including Amazon's launcher. When that happens a tile appears at the top of "
-                + "the home screen, and pressing it switches them off again. It only checks "
-                + "what this app switched off, and needs the ADB link to fix them.");
+        watch.setHelp("If an update switches back on something Debloat turned off, the home "
+                + "screen shows it for 10 seconds, and OK switches it off again.");
 
         final Panel.Row updates = p.addRow("Check for updates",
                 "v" + UpdateChecker.installedVersionName(c), null);

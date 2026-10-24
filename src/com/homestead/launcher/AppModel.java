@@ -301,6 +301,8 @@ public final class AppModel {
             if (Debloat.stateOf(c, pkg) != Debloat.ENABLED) continue;
             // Boot maintenance is about to switch these off again by itself.
             if (autoFixPending && !Debloat.isRisky(pkg)) continue;
+            // Not offered where switching it off is blocked (Amazon's launcher on Fire OS 7).
+            if (Debloat.isRisky(pkg) && Debloat.isProtected(c, pkg)) continue;
             out.add(pkg);
         }
         Collections.sort(out);

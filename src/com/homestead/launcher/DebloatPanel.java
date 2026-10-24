@@ -201,7 +201,9 @@ public final class DebloatPanel {
             else if (e.caution) row.setBadge("Caution");
             String why = e.group == Debloat.GROUP_VOICE ? ALEXA
                     : e.risky ? "Marked risky: it is never switched off by the one-press buttons "
-                            + "or by Simple mode. To switch it back on, use this row, \"Undo "
+                            + "or by Simple mode, and it is offered only on a TV that would then "
+                            + "send Home straight to Homestead (not Fire OS 7, where Amazon's Home "
+                            + "Starter takes Home). To switch it back on, use this row, \"Undo "
                             + "everything this app switched off\", or from a computer: "
                             + "adb shell pm enable --user 0 " + e.pkg
                     : e.caution ? "Marked caution: switching it off changes how the TV behaves."
