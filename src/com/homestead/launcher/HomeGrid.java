@@ -693,6 +693,7 @@ public class HomeGrid implements SettingsPanel.Host {
             LinearLayout.LayoutParams lp =
                     new LinearLayout.LayoutParams(dp(CARD_W_DP), dp(CARD_H_DP));
             if (i > 0) lp.leftMargin = dp(GAP_DP);
+            if (i == items.size() - 1) stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
             row.addView(cell, lp);
         }
         hs.addView(row, new FrameLayout.LayoutParams(
@@ -717,6 +718,9 @@ public class HomeGrid implements SettingsPanel.Host {
                 column.addView(row, rlp);
             }
             View cell = buildTile(items.get(i));
+            boolean rowEnd = i % AppModel.columns(ctx) == AppModel.columns(ctx) - 1
+                    || i == items.size() - 1;
+            if (rowEnd) stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(w, h);
             if (i % AppModel.columns(ctx) != 0) lp.leftMargin = dp(GAP_DP);
             row.addView(cell, lp);
@@ -797,6 +801,19 @@ public class HomeGrid implements SettingsPanel.Host {
             f.setScaleY(1f);
             f.setTranslationZ(0f);
         }
+    }
+
+    /**
+     * Keep focus on the last cell of a row when the D-pad points past it. Otherwise the
+     * focus search picks the nearest cell that way anywhere on the page, often in another
+     * row, which reads as a jump.
+     */
+    private static void stopAt(View cell, final int keyCode) {
+        cell.setOnKeyListener(new View.OnKeyListener() {
+            public boolean onKey(View v, int code, android.view.KeyEvent e) {
+                return code == keyCode;
+            }
+        });
     }
 
     /** A TV app: full-bleed banner, already rounded in the bitmap. */
