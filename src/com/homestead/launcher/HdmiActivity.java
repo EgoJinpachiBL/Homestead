@@ -30,6 +30,7 @@ import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -121,9 +122,11 @@ public class HdmiActivity extends Activity {
                 settled = true;
                 handler.removeCallbacks(timeout);
                 status.setVisibility(View.GONE);
+                keepAwake(true);
             }
             @Override public void onVideoUnavailable(String id, int reason) {
                 Log.w(TAG, "onVideoUnavailable " + id + " reason=" + reason);
+                keepAwake(false);
                 // reason 1 == TUNING, keep waiting; anything else means a dead port.
                 if (reason != 1) {
                     settled = true;
@@ -191,6 +194,17 @@ public class HdmiActivity extends Activity {
         handler.removeCallbacks(timeout);
         try { if (tvView != null) tvView.reset(); } catch (Throwable t) { }
         abandonAudioFocus();
+        keepAwake(false);
+    }
+
+    /**
+     * While the input shows a picture, keep the screen on: a game controller or a disc
+     * player's remote does not count as activity, so the screensaver would start mid-game.
+     * Without a picture ("No signal") the TV sleeps as usual.
+     */
+    private void keepAwake(boolean on) {
+        if (on) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
     }
 
     private void requestAudioFocus() {
