@@ -635,8 +635,8 @@ public class HomeGrid implements SettingsPanel.Host {
     private void addLiveTvTile(AppModel.Item it) {
         FrameLayout cell = newCell(it);
         topTile = cell;
-        // Alone on its row, so Right would otherwise jump to a tile in the grid below.
-        stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+        // Alone on its row, so Left or Right would otherwise jump to a tile in another row.
+        stopAt(cell, true, true);
         GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
                 new int[] { 0xFF168494, 0xFF0A3642 });
         card.setCornerRadius(dp(8));
@@ -680,9 +680,29 @@ public class HomeGrid implements SettingsPanel.Host {
         column.addView(h, lp);
     }
 
+    /**
+     * A scrolling row of cards. HorizontalScrollView moves the focus for Left and Right itself
+     * and reports the key handled, so the system's navigation click, which every other D-pad
+     * move makes, never plays; the row plays it when the focus actually moved.
+     */
+    private static final class CardRow extends HorizontalScrollView {
+        CardRow(Context c) { super(c); }
+
+        @Override public boolean arrowScroll(int direction) {
+            View before = findFocus();
+            boolean handled = super.arrowScroll(direction);
+            View after = findFocus();
+            if (handled && after != null && after != before && after != this) {
+                playSoundEffect(android.view.SoundEffectConstants
+                        .getContantForFocusDirection(direction));
+            }
+            return handled;
+        }
+    }
+
     /** Wide cards in a horizontally scrolling row. */
     private void addCardRow(List<AppModel.Item> items) {
-        HorizontalScrollView hs = new HorizontalScrollView(ctx);
+        HorizontalScrollView hs = new CardRow(ctx);
         rows.add(hs);
         hs.setHorizontalScrollBarEnabled(false);
         hs.setClipChildren(false);
@@ -695,7 +715,7 @@ public class HomeGrid implements SettingsPanel.Host {
             LinearLayout.LayoutParams lp =
                     new LinearLayout.LayoutParams(dp(CARD_W_DP), dp(CARD_H_DP));
             if (i > 0) lp.leftMargin = dp(GAP_DP);
-            if (i == items.size() - 1) stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+            stopAt(cell, i == 0, i == items.size() - 1);
             row.addView(cell, lp);
         }
         hs.addView(row, new FrameLayout.LayoutParams(
@@ -722,7 +742,7 @@ public class HomeGrid implements SettingsPanel.Host {
             View cell = buildTile(items.get(i));
             boolean rowEnd = i % AppModel.columns(ctx) == AppModel.columns(ctx) - 1
                     || i == items.size() - 1;
-            if (rowEnd) stopAt(cell, android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
+            stopAt(cell, i % AppModel.columns(ctx) == 0, rowEnd);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(w, h);
             if (i % AppModel.columns(ctx) != 0) lp.leftMargin = dp(GAP_DP);
             row.addView(cell, lp);
@@ -806,14 +826,16 @@ public class HomeGrid implements SettingsPanel.Host {
     }
 
     /**
-     * Keep focus on the last cell of a row when the D-pad points past it. Otherwise the
-     * focus search picks the nearest cell that way anywhere on the page, often in another
-     * row, which reads as a jump.
+     * Keep focus on the first or last cell of a row when the D-pad points past it. Otherwise
+     * the focus search picks the nearest cell that way anywhere on the page, often in another
+     * row (a scrolled card row has cards off the left edge), which reads as a jump.
      */
-    private static void stopAt(View cell, final int keyCode) {
+    private static void stopAt(View cell, final boolean first, final boolean last) {
+        if (!first && !last) return;
         cell.setOnKeyListener(new View.OnKeyListener() {
             public boolean onKey(View v, int code, android.view.KeyEvent e) {
-                return code == keyCode;
+                return (first && code == android.view.KeyEvent.KEYCODE_DPAD_LEFT)
+                        || (last && code == android.view.KeyEvent.KEYCODE_DPAD_RIGHT);
             }
         });
     }
