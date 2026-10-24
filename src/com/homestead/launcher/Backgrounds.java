@@ -49,9 +49,16 @@ final class Backgrounds {
         final int ring;          // the focus ring around a tile
         /** A faint edge on every tile, so dark banners do not merge into a dark background. 0 for none. */
         final int outline;
+        /** A soft glow in the middle fading to the edges, instead of the diagonal gradient. */
+        final boolean radial;
         Preset(String id, String name, int from, int to, int text, int ring, int outline) {
+            this(id, name, from, to, text, ring, outline, false);
+        }
+        Preset(String id, String name, int from, int to, int text, int ring, int outline,
+                boolean radial) {
             this.id = id; this.name = name; this.from = from; this.to = to; this.text = text; this.ring = ring;
             this.outline = outline;
+            this.radial = radial;
         }
     }
 
@@ -67,6 +74,9 @@ final class Backgrounds {
             new Preset("charcoal", "Charcoal", 0xFF1A1B1F, 0xFF3A3C44, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
             new Preset("dusk",     "Dusk",     0xFF2A1B3D, 0xFF6B3E7C, 0xFFFFFFFF, 0xFFF0E6F5, EDGE),
             new Preset("black",    "Black",    0xFF000000, 0xFF000000, 0xFFFFFFFF, 0xFFE6E6E6, EDGE),
+            // Dark, with a faint glow in the middle rather than a flat black.
+            new Preset("ember",    "Ember",    0xFF35101F, 0xFF000000, 0xFFFFFFFF, 0xFFF0E6EA, EDGE, true),
+            new Preset("deepsea",  "Deep sea", 0xFF08303A, 0xFF000000, 0xFFFFFFFF, 0xFFE6F0F2, EDGE, true),
     };
 
     /** The setting value for the photo. */
@@ -261,6 +271,19 @@ final class Backgrounds {
     }
 
     static Drawable drawable(Preset p) {
+        if (p.radial) {
+            // The glow sits left of centre, behind the first tile; its reach follows the screen.
+            GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                    new int[]{ p.from, p.to }) {
+                @Override protected void onBoundsChange(android.graphics.Rect r) {
+                    super.onBoundsChange(r);
+                    setGradientRadius(Math.max(r.width(), r.height()) * 0.78f);
+                }
+            };
+            g.setGradientType(GradientDrawable.RADIAL_GRADIENT);
+            g.setGradientCenter(0.36f, 0.42f);
+            return g;
+        }
         return new GradientDrawable(GradientDrawable.Orientation.BL_TR,
                 new int[]{ p.from, p.to });
     }
