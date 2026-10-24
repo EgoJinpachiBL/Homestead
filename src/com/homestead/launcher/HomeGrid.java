@@ -660,7 +660,20 @@ public class HomeGrid implements SettingsPanel.Host {
         hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
         text.addView(hint);
 
-        cell.addView(text, new FrameLayout.LayoutParams(
+        // The same line icon as the Live TV card, large, left of the text.
+        LinearLayout row = new LinearLayout(ctx);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(24), 0, 0, 0);
+        if (it.glyph != 0) {
+            ImageView ic = new ImageView(ctx);
+            ic.setImageResource(it.glyph);
+            ic.setColorFilter(0xFFBFE9EE, android.graphics.PorterDuff.Mode.SRC_IN);
+            row.addView(ic, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        }
+        row.addView(text, new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        cell.addView(row, new FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         int w = AppModel.cellW(ctx) * 2 + dp(GAP_DP);
         int h = AppModel.cellH(ctx) * 3 / 2;
