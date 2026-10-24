@@ -289,7 +289,7 @@ public final class SettingsPanel {
             rows.add(r);
             ids.add(look.id);
         }
-        rows.get(rows.size() - 2).setHelp("Black is for OLED screens and night viewing.");
+        rows.get(ids.indexOf("black")).setHelp("Black is for OLED screens and night viewing.");
         rows.get(rows.size() - 1).setHelp("Choose a picture saved on the TV below (needs the "
                 + "on-device tunnel), or send a JPEG or PNG from a computer:\n\n"
                 + "adb push background.jpg /sdcard/Download/\n"
@@ -332,9 +332,7 @@ public final class SettingsPanel {
 
     /** A preset's colours as a small rounded sample, edged so dark ones show on the page. */
     private static android.graphics.drawable.Drawable swatch(Context c, Backgrounds.Preset look) {
-        android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable(
-                android.graphics.drawable.GradientDrawable.Orientation.BL_TR,
-                new int[]{ look.from, look.to });
+        android.graphics.drawable.GradientDrawable d = Backgrounds.drawable(look);
         d.setCornerRadius(AppModel.dp(c, 5));
         d.setStroke(AppModel.dp(c, 1), 0x59FFFFFF);
         return d;

@@ -270,7 +270,7 @@ final class Backgrounds {
         try { c.getExternalFilesDir(null); } catch (Throwable ignored) { }
     }
 
-    static Drawable drawable(Preset p) {
+    static GradientDrawable drawable(Preset p) {
         if (p.radial) {
             // The glow sits left of centre, behind the first tile; its reach follows the screen.
             GradientDrawable g = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
