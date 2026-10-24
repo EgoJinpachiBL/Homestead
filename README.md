@@ -261,6 +261,9 @@ says exactly what is read.
 - **The Amazon Home tile pauses Homestead for 30 seconds.** After that, Homestead may take
   over again while you are still browsing Amazon's home screen. Pressing Home brings
   Homestead back at any time.
+- **On Fire OS 7, Back from a Settings page can land on Homestead.** Amazon's main Settings
+  screen there is a tab of its home screen, so going back to it from a page such as Network
+  looks the same as going home. Open Settings again to carry on.
 
 ## Building
 
@@ -373,6 +376,9 @@ Things that look like bugs but are Fire OS:
   Bypassing HOME key` in the log) and then start the home screen under their own uid, so a
   HOME start from the app in front counts as a press too. That hook needs an Amazon-only
   permission, so Homestead cannot use it for its own screens.
+- Amazon's Settings opens by starting the home screen under its own uid
+  (`com.amazon.tv.settings.v2`), then its settings page. That HOME start is not a press, and
+  for a few seconds after it Amazon's home windows do not bring Homestead back.
 - Fire OS refuses an ADB connection that starts on the TV itself; that is why the tunnel
   exists. The connection over Wi-Fi from a computer also drops often, so reconnect before
   each command when scripting.
