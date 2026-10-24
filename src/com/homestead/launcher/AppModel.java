@@ -171,11 +171,14 @@ public final class AppModel {
 
         loadInputs(c);
 
-        Item amazon = new Item();
-        amazon.type = TYPE_AMAZON_HOME;
-        amazon.label = "Amazon Home";
-        amazon.icon = toBitmap(c, appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
-        ITEMS.add(amazon);
+        // With Amazon's launcher switched off the tile would start nothing.
+        if (amazonLauncherOn(c)) {
+            Item amazon = new Item();
+            amazon.type = TYPE_AMAZON_HOME;
+            amazon.label = "Amazon Home";
+            amazon.icon = toBitmap(c, appIcon(c, AMAZON_LAUNCHER), ICON_PX, ICON_PX, false);
+            ITEMS.add(amazon);
+        }
 
         Item settings = new Item();
         settings.type = TYPE_SETTINGS;
@@ -254,6 +257,11 @@ public final class AppModel {
         return !signature(c).equals(lastSignature);
     }
 
+    /** False only when Amazon's launcher is present and switched off; unknown counts as on. */
+    static boolean amazonLauncherOn(Context c) {
+        return Debloat.stateOf(c, AMAZON_LAUNCHER) != Debloat.DISABLED;
+    }
+
     /** Launchable activities and HDMI inputs, as a string to compare between loads. */
     private static String signature(Context c) {
         List<String> parts = new ArrayList<String>();
@@ -289,6 +297,7 @@ public final class AppModel {
             parts.add("inputs failed");
         }
         if (liveTvAvailable(c)) parts.add("livetv");
+        if (amazonLauncherOn(c)) parts.add("amazonhome");
         Collections.sort(parts);
         return parts.toString();
     }

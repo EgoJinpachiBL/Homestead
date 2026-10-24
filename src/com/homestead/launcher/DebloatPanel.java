@@ -197,8 +197,13 @@ public final class DebloatPanel {
             this.entry = e;
             this.locked = Debloat.protectionReason(c, e.pkg);
             this.row = p.addRow(e.title, "", null).asSwitch();
-            if (e.caution) row.setBadge("Caution");
+            if (e.risky) row.setBadge("Risky");
+            else if (e.caution) row.setBadge("Caution");
             String why = e.group == Debloat.GROUP_VOICE ? ALEXA
+                    : e.risky ? "Marked risky: it is never switched off by the one-press buttons "
+                            + "or by Simple mode. To switch it back on, use this row, \"Undo "
+                            + "everything this app switched off\", or from a computer: "
+                            + "adb shell pm enable --user 0 " + e.pkg
                     : e.caution ? "Marked caution: switching it off changes how the TV behaves."
                     : null;
             row.setHelp(e.note + (why != null ? "\n\n" + why : "") + "\n\n" + e.pkg);
@@ -310,6 +315,7 @@ public final class DebloatPanel {
         for (int i = 0; i < Debloat.CATALOGUE.length; i++) {
             Debloat.Entry e = Debloat.CATALOGUE[i];
             if (e.caution != cautionGroup) continue;
+            if (e.risky) continue;
             if (skip != null && skip.contains(e.pkg)) continue;
             if (Debloat.isProtected(c, e.pkg)) continue;
             if (Debloat.stateOf(c, e.pkg) != Debloat.ENABLED) continue;
