@@ -80,6 +80,10 @@ public class HdmiActivity extends Activity {
 
         setContentView(root);
 
+        // Without this the TV's input service (MediaTek's, on Fire OS 7) plays the input at
+        // volume 0: TvView only sends a volume once one has been set.
+        tvView.setStreamVolume(1.0f);
+
         tvView.setCallback(new TvView.TvInputCallback() {
             @Override public void onConnectionFailed(String id) {
                 Log.w(TAG, "onConnectionFailed " + id);
