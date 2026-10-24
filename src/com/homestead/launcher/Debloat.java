@@ -379,6 +379,14 @@ final class Debloat {
         return null;
     }
 
+    /** The catalogue's plain-English name for a package, or the package name itself. */
+    static String titleOf(String pkg) {
+        for (int i = 0; i < CATALOGUE.length; i++) {
+            if (CATALOGUE[i].pkg.equals(pkg)) return CATALOGUE[i].title;
+        }
+        return pkg;
+    }
+
     /** A catalogue entry that is switched off only from its own row, never in bulk. */
     static boolean isRisky(String pkg) {
         for (int i = 0; i < CATALOGUE.length; i++) {
