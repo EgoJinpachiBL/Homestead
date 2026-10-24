@@ -203,6 +203,10 @@ public class HdmiActivity extends Activity {
                                     .setUsage(AudioAttributes.USAGE_MEDIA)
                                     .setContentType(AudioAttributes.CONTENT_TYPE_MOVIE)
                                     .build())
+                            // The system lowers only sound that apps play themselves, and the
+                            // input's sound goes straight to the speakers. This asks for the
+                            // "lower your volume" call instead; nothing is paused.
+                            .setWillPauseWhenDucked(true)
                             .setOnAudioFocusChangeListener(focusChange)
                             .build();
                 }
