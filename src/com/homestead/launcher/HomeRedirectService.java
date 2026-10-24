@@ -672,6 +672,9 @@ public class HomeRedirectService extends AccessibilityService {
             if ((!ours || ourHdmi) && attached != null) {
                 Log.i(TAG, "foreground is now " + p + ", removing overlay");
                 cancelHide();
+                // The overlay is going; a queued handoff firing before it does would put
+                // the home screen back over the app that just came up.
+                cancelPendingOpen();
                 revealSoon();
             }
             return;
