@@ -124,10 +124,12 @@ public final class HealthPanel {
             row.cell.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     if (!canApply(c)) return;
+                    // Before apply: with the permission held it finishes at once and paints
+                    // the result, which a later "working..." would cover for good.
+                    row.setValue("working...");
                     apply(c, new Check[]{ck}, new Runnable() {
                         public void run() { paint(c, ck, row); }
                     });
-                    row.setValue("working...");
                 }
             });
         }
