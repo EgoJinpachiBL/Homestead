@@ -68,6 +68,10 @@ public final class AppModel {
     static final String AMAZON_LAUNCHER = "com.amazon.tv.launcher";
     /** Apple AirPlay & HomeKit. Fire OS only lets its own Settings open it, so we fall back. */
     static final String AIRPLAY_PKG = "com.apple.airplay.amazon.airplay";
+    /** Tiles Fire OS only lets its own Settings/home open; we fall back to pointing the way. */
+    static final String PROFILE_PICKER_PKG = "com.amazon.ftv.profilepicker";
+    static final String AMAZON_KIDS_PKG = "com.amazon.tahoe";
+    static final String WSIW_PKG = "com.amazon.vizzini.ftvcds";
     static final String AMAZON_SETTINGS = "com.amazon.tv.settings.v2";
     static final String AMAZON_HOME_CLS = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
 

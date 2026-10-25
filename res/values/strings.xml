@@ -20,4 +20,7 @@
   <string name="home_greet_afternoon">Good afternoon</string>
   <string name="home_greet_evening">Good evening</string>
   <string name="home_airplay_hint">Open Display &amp; Sounds, then Apple AirPlay and HomeKit</string>
+  <string name="home_profile_hint">Open Account &amp; Profile Settings, then Profiles</string>
+  <string name="home_kids_hint">Open Account &amp; Profile Settings, then Kids Settings</string>
+  <string name="home_wsiw_hint">Ask Alexa: “what should I watch?”</string>
 </resources>

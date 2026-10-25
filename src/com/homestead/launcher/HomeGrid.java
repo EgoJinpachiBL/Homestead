@@ -1380,10 +1380,23 @@ public class HomeGrid implements SettingsPanel.Host {
             } catch (Throwable t) { }
             return;
         }
-        // Fire OS lets only its own Settings open AirPlay's screen, so a direct launch is refused
-        // and does nothing. Open the TV's Settings instead and point the way, with a brief bubble.
+        // Fire OS lets only its own Settings/home open some apps' screens, so a direct launch is
+        // refused and the tile did nothing. Open the TV's Settings and point the way with a brief
+        // bubble, or (for one with no settings home) just show where to go.
         if (AppModel.AIRPLAY_PKG.equals(it.pkg)) {
             openTvSettings(R.string.home_airplay_hint);
+            return;
+        }
+        if (AppModel.PROFILE_PICKER_PKG.equals(it.pkg)) {
+            openTvSettings(R.string.home_profile_hint);
+            return;
+        }
+        if (AppModel.AMAZON_KIDS_PKG.equals(it.pkg)) {
+            openTvSettings(R.string.home_kids_hint);
+            return;
+        }
+        if (AppModel.WSIW_PKG.equals(it.pkg)) {
+            Toast.makeText(ctx, R.string.home_wsiw_hint, Toast.LENGTH_LONG).show();
             return;
         }
         AppModel.noteLaunched(ctx, it);
