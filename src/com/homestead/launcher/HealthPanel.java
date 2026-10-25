@@ -264,7 +264,8 @@ public final class HealthPanel {
 
     private static String describe(Check ck, String cur) {
         if (cur == null) return "unset";
-        if (ck.isGood(cur)) return ck.shortWant();
+        // What is set, not the target: a picked screensaver is fine but is not the target.
+        if (ck.isGood(cur)) return ck.abbreviate(cur);
         return ck.abbreviate(cur) + " -> " + ck.shortWant();
     }
 
