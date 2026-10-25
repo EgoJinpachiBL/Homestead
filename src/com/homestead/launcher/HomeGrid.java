@@ -96,6 +96,8 @@ public class HomeGrid implements SettingsPanel.Host {
     private final List<HorizontalScrollView> rows = new ArrayList<HorizontalScrollView>();
     private View focusedCell;
     private String focusedKey;
+    /** The grid row lifted so its focused tile's name label draws over the row below. */
+    private View raisedRow;
     /** The Live TV first tile, or null when that layout is not in use. */
     private View topTile;
     /** AppModel.order() as of the last build, to spot a re-sort done by the other grid. */
@@ -633,6 +635,7 @@ public class HomeGrid implements SettingsPanel.Host {
         cellsByKey.clear();
         rows.clear();
         focusedCell = null;
+        raisedRow = null;
         topTile = null;
         restoreSlot = null;
 
@@ -654,6 +657,7 @@ public class HomeGrid implements SettingsPanel.Host {
         cellsByKey.clear();
         rows.clear();
         focusedCell = null;
+        raisedRow = null;
         restoreSlot = null;
 
         List<AppModel.Item> inputs = new ArrayList<AppModel.Item>();
@@ -1163,14 +1167,20 @@ public class HomeGrid implements SettingsPanel.Host {
             f.setScaleX(scale);
             f.setScaleY(scale);
         }
+        // The label hangs over the next grid row, which is drawn later, so the focused tile's
+        // row is lifted above it. Only one row is ever lifted, and only a focus gain moves
+        // the lift: a loss can't tell whether focus is staying in the row.
+        View row = (View) f.getParent();
+        if (focused && raisedRow != null && raisedRow != row) {
+            raisedRow.setTranslationZ(0f);
+            raisedRow = null;
+        }
         View name = f.findViewWithTag(NAME_TAG);
         if (name != null) {
             name.setVisibility(focused ? View.VISIBLE : View.INVISIBLE);
-            // The label hangs over the next grid row, which is drawn later; lift this row
-            // above it. Left up while focus stays in the row, whatever order the calls come.
-            View row = (View) f.getParent();
-            if (row != null && (focused || focusedCell == null || focusedCell.getParent() != row)) {
-                row.setTranslationZ(focused ? dp(8) : 0f);
+            if (focused && row != null) {
+                row.setTranslationZ(dp(8));
+                raisedRow = row;
             }
             // Scroll far enough to show the label too, not only the banner.
             if (focused && animate) {
