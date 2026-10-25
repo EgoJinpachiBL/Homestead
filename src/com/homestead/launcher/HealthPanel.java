@@ -264,7 +264,8 @@ public final class HealthPanel {
     }
 
     private static String describe(Check ck, String cur) {
-        if (cur == null) return "unset";
+        cur = ck.effective(cur);
+        if (cur == null || cur.isEmpty()) return "unset";
         // What is set, not the target: a picked screensaver is fine but is not the target.
         if (ck.isGood(cur)) return ck.abbreviate(cur);
         return ck.abbreviate(cur) + " -> " + ck.shortWant();
@@ -316,13 +317,20 @@ public final class HealthPanel {
             } catch (Throwable t) { return null; }
         }
 
+        /** The value the TV goes by: an unset animation scale is Android's default, 1. */
+        String effective(String cur) {
+            return cur == null && key.endsWith("_scale") ? "1" : cur;
+        }
+
         boolean isGood(String cur) {
-            // An unset animation scale is Android's default, 1.
-            if (cur == null && key.endsWith("_scale")) cur = "1";
+            cur = effective(cur);
             if (cur == null) return false;
             if (want.equals(cur)) return true;
-            // Any screensaver the user picked is fine but Amazon's, which shows ads.
-            if ("screensaver_components".equals(key)) return !cur.contains("com.amazon.ftv.screensaver");
+            // Any screensaver the user picked is fine but Amazon's, which shows ads. None
+            // picked (empty) leaves the TV's default, so it still counts as not fine.
+            if ("screensaver_components".equals(key)) {
+                return !cur.isEmpty() && !cur.contains("com.amazon.ftv.screensaver");
+            }
             // Animation scales come back as "0.0" against a wanted "0".
             try { return Float.parseFloat(cur) == Float.parseFloat(want); }
             catch (Throwable t) { return false; }
