@@ -36,7 +36,9 @@ Both pictures are from the same TV, a few minutes apart.
 - **Debloat** switches off dozens of vetted Amazon packages, each with a plain-English
   description of what it does. Nothing is uninstalled and no data is deleted, and any
   package can be switched back on from the same page. A few packages are protected by
-  Fire OS and cannot be switched off by any app.
+  Fire OS and cannot be switched off by any app. On TVs where Home would then come
+  straight to Homestead (not Fire OS 7), Amazon's launcher itself can be switched off too;
+  it is marked risky, takes two presses and is never part of the one-press buttons.
 - **No computer needed.** The on-device tunnel lets the app switch on the Home button,
   grant itself the permissions it needs and run Debloat, all from the remote. It is off
   until you turn it on and shuts down when the work is done. A few commands from a
@@ -57,7 +59,7 @@ Real hardware, not emulators:
 | Amazon Fire TV Stick | `AFTSSS` | 7.7.1.6 | **Setup without a computer**: key approval, permissions, automatic shutdown of the tunnel |
 | Amazon Fire TV Stick 4K (2nd gen) | `AFTKM` | 8.1.8.5 | **Reported by a user, not tested here**: Home button, Debloat (28 packages switched off; Fire OS 8 protects a few more than Fire OS 7), several reboots, and a background photo sent from a computer (1.2.9). Set up from a computer. |
 | Hisense 65U65SFC Pro (Fire TV Edition) | `AFTCIBFBD1` | 8.1.8.0 | **Reported by a user, not tested here**: Home button, Debloat, a full reboot, and the fix for repeated package events (1.2.3 and later). Set up from a computer. |
-| TCL 40V5D (Fire TV Edition) | `AFTTIFB900` | 14 (build SL14SHIP1021.86N) | **Reported by a user, not tested here**: Home button, Debloat, TV Health, a full reboot, HDMI/Composite tiles, and setup from a computer. |
+| TCL 40V5D (Fire TV Edition) | `AFTTIFB900` | 14 (build SL14SHIP1021.86N) | **Reported by a user, not tested here**: Home button, Debloat, TV Health, a full reboot, HDMI/Composite tiles, and setup from a computer. Amazon's launcher switched off and back on, with Home going straight to Homestead after a reboot (1.6.11). |
 
 The first two run Android 9 and were tested by the maintainer. The last three are user
 reports: two on Fire OS 8 (Android 11), one on Fire OS 14. Other devices are *expected* to
@@ -118,7 +120,9 @@ The tunnel runs only while the app is making changes and shuts itself off afterw
 [SECURITY.md](SECURITY.md) explains what the app can access and what goes over the network.
 Some Amazon packages switch themselves back on after a restart; with **Re-apply after
 reboot** on (the default), Homestead switches them off again about a minute after the TV
-starts, which needs ADB debugging left on.
+starts, which needs ADB debugging left on. Firmware updates can also switch packages back
+on; with **Warn if the system undoes Debloat** on (off by default), the home screen shows a
+tile for ten seconds offering to switch them off again.
 
 If the Home button ever goes back to Amazon's home screen, for example after an update,
 select **Finish setup automatically** again. If you set Homestead up before version 1.2, run
@@ -216,7 +220,8 @@ Things to know before you leave the TV:
 
 1. Open **Debloat** and select **Undo everything this app switched off**. This switches
    back on exactly the packages Homestead turned off. Uninstalling the app does *not* do
-   this for you.
+   this for you. If you switched off Amazon's launcher, this step matters most: without
+   it the TV is left with no home screen until a computer switches the launcher back on.
 2. If you used the on-device tunnel, select **Forget our key** in Setup, then revoke the
    TV's copy under Settings → My Fire TV → Developer options, and turn ADB debugging off.
 3. Uninstall Homestead under Settings → Applications → Manage Installed Applications.
