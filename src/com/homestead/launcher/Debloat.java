@@ -182,10 +182,6 @@ final class Debloat {
             new Entry(GROUP_TELEMETRY, "com.amazon.device.logmanager",
                     "Log upload service",
                     "Usually protected by Fire OS.", SAFE),
-            new Entry(GROUP_TELEMETRY, "com.amazon.firebat",
-                    "Diagnostic test harness",
-                    "A factory test harness that keeps running in the background.", SAFE),
-
             new Entry(GROUP_TELEMETRY, "com.amazon.wirelessmetrics.service",
                     "Wireless metrics",
                     "Reports Wi-Fi and network metrics to Amazon.", SAFE),
@@ -235,6 +231,11 @@ final class Debloat {
             new Entry(GROUP_EXTRAS, "com.apple.airplay.amazon.airplay",
                     "AirPlay receiver",
                     "Screen mirroring from Apple devices.", CAUTION),
+            new Entry(GROUP_EXTRAS, "com.amazon.firebat",
+                    "Prime Video",
+                    "Amazon's Prime Video app. It starts in the background after boot, so "
+                            + "switching it off frees memory, but Prime Video will not open "
+                            + "until you switch it back on.", CAUTION),
             new Entry(GROUP_EXTRAS, "com.amazon.whad",
                     "Wireless Home Audio daemon",
                     "Pairing with Echo speakers for TV audio.", CAUTION),
