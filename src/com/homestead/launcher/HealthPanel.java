@@ -238,16 +238,21 @@ public final class HealthPanel {
      * the ADB link (which also grants it). Calls back on the main thread.
      */
     private static void apply(final Context c, final Check[] checks, final Runnable after) {
+        // Only what is not already fine, so a screensaver the user picked is left alone.
         if (canWriteSettings(c)) {
-            for (int i = 0; i < checks.length; i++) checks[i].applyDirect(c);
+            for (int i = 0; i < checks.length; i++) {
+                if (!checks[i].isGood(checks[i].read(c))) checks[i].applyDirect(c);
+            }
             after.run();
             return;
         }
         if (!AdbBridge.canRun(c)) { after.run(); return; }
-        String[] cmds = new String[checks.length + 1];
-        for (int i = 0; i < checks.length; i++) cmds[i] = checks[i].command();
-        cmds[checks.length] = "pm grant " + c.getPackageName() + " " + PERM_WSS;
-        AdbBridge.run(cmds, new AdbBridge.Callback() {
+        List<String> cmds = new ArrayList<String>();
+        for (int i = 0; i < checks.length; i++) {
+            if (!checks[i].isGood(checks[i].read(c))) cmds.add(checks[i].command());
+        }
+        cmds.add("pm grant " + c.getPackageName() + " " + PERM_WSS);
+        AdbBridge.run(cmds.toArray(new String[cmds.size()]), new AdbBridge.Callback() {
             public void onDone(boolean ok, String out) { after.run(); }
         });
     }
@@ -260,7 +265,8 @@ public final class HealthPanel {
 
     private static String describe(Check ck, String cur) {
         if (cur == null) return "unset";
-        if (ck.isGood(cur)) return ck.shortWant();
+        // What is set, not the target: a picked screensaver is fine but is not the target.
+        if (ck.isGood(cur)) return ck.abbreviate(cur);
         return ck.abbreviate(cur) + " -> " + ck.shortWant();
     }
 
@@ -315,6 +321,8 @@ public final class HealthPanel {
             if (cur == null && key.endsWith("_scale")) cur = "1";
             if (cur == null) return false;
             if (want.equals(cur)) return true;
+            // Any screensaver the user picked is fine but Amazon's, which shows ads.
+            if ("screensaver_components".equals(key)) return !cur.contains("com.amazon.ftv.screensaver");
             // Animation scales come back as "0.0" against a wanted "0".
             try { return Float.parseFloat(cur) == Float.parseFloat(want); }
             catch (Throwable t) { return false; }
