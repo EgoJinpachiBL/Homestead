@@ -98,7 +98,8 @@ public final class HealthPanel {
 
         checks.add(Check.global("window_animation_scale", "0", "Window animation"));
         checks.add(Check.global("transition_animation_scale", "0", "Transition animation"));
-        checks.add(Check.global("animator_duration_scale", "0.5", "Animator duration"));
+        // Below 1, the Amazon home menu's Settings and Inputs do nothing on Fire OS 8.
+        checks.add(Check.global("animator_duration_scale", "1", "Animator duration"));
         checks.add(Check.global("com.amazon.tv.settings.featured_item_video_enabled", "0",
                 "Home-screen video autoplay"));
         checks.add(Check.secure("amz_limit_ad_tracking", "1", "Limit ad tracking"));
@@ -310,6 +311,8 @@ public final class HealthPanel {
         }
 
         boolean isGood(String cur) {
+            // An unset animation scale is Android's default, 1.
+            if (cur == null && key.endsWith("_scale")) cur = "1";
             if (cur == null) return false;
             if (want.equals(cur)) return true;
             // Animation scales come back as "0.0" against a wanted "0".
