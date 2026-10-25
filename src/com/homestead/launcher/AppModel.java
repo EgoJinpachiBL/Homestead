@@ -278,14 +278,23 @@ public final class AppModel {
     }
 
     /**
-     * Whether changes to these packages could alter the grid: one of them is on it, or the
-     * launchable apps or HDMI inputs differ from the last load. Decodes no artwork.
+     * Whether changes to these packages could alter the grid: one of them is on it, one is
+     * something this app switched off (the restore tile), or the launchable apps or HDMI
+     * inputs differ from the last load. Decodes no artwork.
      */
     public static boolean affectsGrid(Context c, Set<String> changed) {
         if (!loaded) return true;
         for (int i = 0; i < ITEMS.size(); i++) {
             String p = ITEMS.get(i).pkg;
             if (p != null && changed.contains(p)) return true;
+        }
+        // Most of what Debloat switches off is not on the grid, but switching it back on
+        // (or off again) brings the restore tile up or takes it away.
+        if (Prefs.restoreWatch(c)) {
+            Set<String> ours = Prefs.disabledByUs(c);
+            for (String p : changed) {
+                if (ours.contains(p)) return true;
+            }
         }
         return !signature(c).equals(lastSignature);
     }
