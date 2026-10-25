@@ -19,4 +19,5 @@
   <string name="home_greet_morning">Good morning</string>
   <string name="home_greet_afternoon">Good afternoon</string>
   <string name="home_greet_evening">Good evening</string>
+  <string name="home_airplay_hint">Open Display &amp; Sounds, then Apple AirPlay and HomeKit</string>
 </resources>

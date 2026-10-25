@@ -1380,6 +1380,12 @@ public class HomeGrid implements SettingsPanel.Host {
             } catch (Throwable t) { }
             return;
         }
+        // Fire OS lets only its own Settings open AirPlay's screen, so a direct launch is refused
+        // and does nothing. Open the TV's Settings instead and point the way, with a brief bubble.
+        if (AppModel.AIRPLAY_PKG.equals(it.pkg)) {
+            openTvSettings(R.string.home_airplay_hint);
+            return;
+        }
         AppModel.noteLaunched(ctx, it);
         try {
             Intent i = new Intent(Intent.ACTION_MAIN);
@@ -1392,5 +1398,27 @@ public class HomeGrid implements SettingsPanel.Host {
             Intent f = ctx.getPackageManager().getLaunchIntentForPackage(it.pkg);
             if (f != null) { f.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); ctx.startActivity(f); }
         } catch (Throwable t) { }
+    }
+
+    /**
+     * Open Fire TV's own Settings menu (the standard LEANBACK_SETTINGS entry any launcher may use) and
+     * show a brief bubble saying where to go, for apps Fire OS won't let a third-party launcher open
+     * directly. The Home redirect stands down for Settings, so the overlay does not cover it.
+     */
+    private void openTvSettings(int hintRes) {
+        HomeRedirectService.suspend(30000L);
+        Toast.makeText(ctx, hintRes, Toast.LENGTH_LONG).show();
+        Intent i = new Intent(Intent.ACTION_MAIN).addCategory("android.intent.category.LEANBACK_SETTINGS")
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { ctx.startActivity(i); return; } catch (Throwable t) { }
+        // Fallback: the launcher's main Settings activity by name.
+        try {
+            Intent e = new Intent(Intent.ACTION_MAIN)
+                    .setClassName(AppModel.AMAZON_LAUNCHER, "com.amazon.tv.launcher.ui.MainSettingsActivity")
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            ctx.startActivity(e); return;
+        } catch (Throwable t) { }
+        try { ctx.startActivity(new Intent(android.provider.Settings.ACTION_SETTINGS)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)); } catch (Throwable t) { }
     }
 }

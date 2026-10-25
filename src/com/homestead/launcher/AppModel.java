@@ -66,6 +66,8 @@ public final class AppModel {
     static final String LIVETV_KEY = "sys:livetv";
     static final String RESTORE_KEY = "sys:restore";
     static final String AMAZON_LAUNCHER = "com.amazon.tv.launcher";
+    /** Apple AirPlay & HomeKit. Fire OS only lets its own Settings open it, so we fall back. */
+    static final String AIRPLAY_PKG = "com.apple.airplay.amazon.airplay";
     static final String AMAZON_SETTINGS = "com.amazon.tv.settings.v2";
     static final String AMAZON_HOME_CLS = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
 
