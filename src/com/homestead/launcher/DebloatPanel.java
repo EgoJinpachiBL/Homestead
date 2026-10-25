@@ -197,8 +197,17 @@ public final class DebloatPanel {
             this.entry = e;
             this.locked = Debloat.protectionReason(c, e.pkg);
             this.row = p.addRow(e.title, "", null).asSwitch();
-            if (e.caution) row.setBadge("Caution");
+            if (e.risky) row.setBadge("Risky");
+            else if (e.caution) row.setBadge("Caution");
             String why = e.group == Debloat.GROUP_VOICE ? ALEXA
+                    : e.risky ? "Marked risky: it is never switched off by the one-press buttons "
+                            + "or by Simple mode, and it is offered only on a TV that would then "
+                            + "send Home straight to Homestead (not Fire OS 7, where Amazon's Home "
+                            + "Starter takes Home). Switching it off takes two presses. To switch "
+                            + "it back on, use this row, \"Undo everything this app switched "
+                            + "off\", or from a computer: adb shell pm enable --user 0 " + e.pkg
+                            + "\n\nSwitch it back on before you uninstall Homestead, or the TV is "
+                            + "left with no home screen until a computer switches it on."
                     : e.caution ? "Marked caution: switching it off changes how the TV behaves."
                     : null;
             row.setHelp(e.note + (why != null ? "\n\n" + why : "") + "\n\n" + e.pkg);
@@ -206,12 +215,26 @@ public final class DebloatPanel {
 
         void bind(final Context c, final Runnable after, final Panel.Row result) {
             if (locked != null) return;
+            // A risky entry is switched off only on a second press within five seconds.
+            final boolean[] armed = { false };
+            final Runnable disarm = new Runnable() {
+                public void run() { armed[0] = false; refresh(c); }
+            };
             row.cell.setOnClickListener(new View.OnClickListener() {
                 public void onClick(View v) {
                     if (!AdbBridge.canRun(c)) return;
                     final int was = Debloat.stateOf(c, entry.pkg);
                     if (was == Debloat.ABSENT) return;
                     final boolean turningOff = (was == Debloat.ENABLED);
+                    if (turningOff && entry.risky && !armed[0]) {
+                        armed[0] = true;
+                        row.setValue("press again to switch off");
+                        row.setValueColor(BAD);
+                        row.cell.postDelayed(disarm, 5000L);
+                        return;
+                    }
+                    row.cell.removeCallbacks(disarm);
+                    armed[0] = false;
                     row.setValue("working...");
                     String cmd = turningOff
                             ? AdbBridge.disableCommand(entry.pkg)
@@ -310,6 +333,7 @@ public final class DebloatPanel {
         for (int i = 0; i < Debloat.CATALOGUE.length; i++) {
             Debloat.Entry e = Debloat.CATALOGUE[i];
             if (e.caution != cautionGroup) continue;
+            if (e.risky) continue;
             if (skip != null && skip.contains(e.pkg)) continue;
             if (Debloat.isProtected(c, e.pkg)) continue;
             if (Debloat.stateOf(c, e.pkg) != Debloat.ENABLED) continue;

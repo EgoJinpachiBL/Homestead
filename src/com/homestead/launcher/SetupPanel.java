@@ -384,6 +384,22 @@ public final class SetupPanel {
                 // The setting is written asynchronously, so show the result directly.
                 row.setValue("off");
                 row.cell.setEnabled(false);
+                // Turning Home off means going back to Amazon's home screen, so its launcher
+                // comes back on if Debloat switched it off.
+                String launcher = AppModel.AMAZON_LAUNCHER;
+                if (Debloat.stateOf(c, launcher) == Debloat.DISABLED
+                        && Prefs.disabledByUs(c).contains(launcher) && AdbBridge.canRun(c)) {
+                    AdbBridge.runRetry(new String[] { AdbBridge.enableCommand(launcher) },
+                            new AdbBridge.Callback() {
+                                public void onDone(boolean ok, String out) {
+                                    boolean on = Debloat.stateOf(c, AppModel.AMAZON_LAUNCHER)
+                                            == Debloat.ENABLED;
+                                    if (on) Prefs.noteDisabled(c, AppModel.AMAZON_LAUNCHER, false);
+                                    row.setValue(on ? "off, Amazon's home is back"
+                                            : "off - switch Amazon's launcher on in Debloat");
+                                }
+                            });
+                }
                 if (after != null) after.run();
             }
         });

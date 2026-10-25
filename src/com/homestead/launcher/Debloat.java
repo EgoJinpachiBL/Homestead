@@ -50,6 +50,7 @@ final class Debloat {
     static final int GROUP_TELEMETRY = 1;
     static final int GROUP_VOICE = 2;
     static final int GROUP_EXTRAS = 3;
+    static final int GROUP_HOME = 4;
 
     /** Marked safe, but Simple mode leaves it on: family photos are a common use of the TV. */
     static final String AMAZON_PHOTOS = "com.amazon.bueller.photos";
@@ -64,13 +65,20 @@ final class Debloat {
         final String note;
         final int group;
         final boolean caution;
+        /** Never part of a bulk switch-off, never offered by the one-press buttons. */
+        final boolean risky;
 
         Entry(int group, String pkg, String title, String note, boolean caution) {
+            this(group, pkg, title, note, caution, false);
+        }
+
+        Entry(int group, String pkg, String title, String note, boolean caution, boolean risky) {
             this.group = group;
             this.pkg = pkg;
             this.title = title;
             this.note = note;
             this.caution = caution;
+            this.risky = risky;
         }
     }
 
@@ -79,6 +87,7 @@ final class Debloat {
             case GROUP_ADS: return "Advertising & recommendations";
             case GROUP_TELEMETRY: return "Telemetry & diagnostics";
             case GROUP_VOICE: return "Alexa";
+            case GROUP_HOME: return "Amazon's home screen";
             default: return "Extras";
         }
     }
@@ -268,6 +277,13 @@ final class Debloat {
             new Entry(GROUP_EXTRAS, "com.amazon.ods.kindleconnect",
                     "\"Show on Fire TV\" casting",
                     "Casts content from an Echo or Fire tablet to this TV.", CAUTION),
+            new Entry(GROUP_HOME, AppModel.AMAZON_LAUNCHER,
+                    "Amazon's launcher",
+                    "Home opens Homestead directly, with no overlay and no flash of Amazon's "
+                            + "screen. Anything that lived only on Amazon's home screen, such as "
+                            + "its Inputs screen, stops working until you switch this back on. "
+                            + "A firmware update can switch it back on by itself.",
+                    CAUTION, true),
     };
 
     /**
@@ -343,6 +359,7 @@ final class Debloat {
 
         for (int i = 0; i < NEVER.length; i++) {
             if (NEVER[i].equals(pkg)) {
+                if (isRisky(pkg)) break;     // its own row, with a warning, is the way in
                 return "com.amazon.ceviche".equals(pkg)
                         ? "disabling this crash-loops the home screen"
                         : "core system component";
@@ -356,8 +373,69 @@ final class Debloat {
                 if (lower.contains(NEVER_CONTAINING[i])) return "core system component";
             }
         }
-        if (liveCritical(c).contains(pkg)) return "in use by the system right now";
+        // The launcher is the home screen right now by definition; Homestead also declares
+        // Home, so the risky entry is allowed past this check and carries its own warning.
+        if (!isRisky(pkg) && liveCritical(c).contains(pkg)) return "in use by the system right now";
+        // Only ever blocks switching it off: once it is off, its row must stay the way back.
+        if (AppModel.AMAZON_LAUNCHER.equals(pkg) && stateOf(c, pkg) == ENABLED) {
+            return homeWithoutAmazonLauncher(c);
+        }
         return null;
+    }
+
+    /**
+     * Null when, with Amazon's launcher off, Home would come straight to Homestead; otherwise
+     * who would get it. Android gives Home to the home screen with the highest priority, and
+     * an app's priority is 0. On Fire OS 7 Amazon's Home Starter declares 1 and would win; it
+     * only switches Amazon's launcher back on and closes, so Home would open nothing. A tie
+     * with another home app would bring up a chooser instead.
+     */
+    static String homeWithoutAmazonLauncher(Context c) {
+        PackageManager pm = c.getPackageManager();
+        List<ResolveInfo> ris;
+        try {
+            ris = pm.queryIntentActivities(
+                    new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME), 0);
+        } catch (Throwable t) {
+            return "could not check what handles Home";
+        }
+        ResolveInfo ours = null, rival = null;
+        for (int i = 0; ris != null && i < ris.size(); i++) {
+            ResolveInfo ri = ris.get(i);
+            if (ri.activityInfo == null) continue;
+            String p = ri.activityInfo.packageName;
+            if (AppModel.AMAZON_LAUNCHER.equals(p)) continue;
+            if (p.equals(c.getPackageName())) {
+                if (ours == null || ri.priority > ours.priority) ours = ri;
+            } else if (rival == null || ri.priority > rival.priority) {
+                rival = ri;
+            }
+        }
+        if (ours == null) return "could not check what handles Home";
+        if (rival == null || rival.priority < ours.priority) return null;
+        if (rival.priority > ours.priority) return "Fire OS would take Home";
+        // Short enough for the row; a package without a label falls back to its name.
+        CharSequence label = null;
+        try { label = rival.loadLabel(pm); } catch (Throwable ignored) { }
+        String name = label == null ? "" : label.toString();
+        return name.length() == 0 || name.equals(rival.activityInfo.packageName)
+                ? "another home app is installed" : "Home shared with " + name;
+    }
+
+    /** The catalogue's plain-English name for a package, or the package name itself. */
+    static String titleOf(String pkg) {
+        for (int i = 0; i < CATALOGUE.length; i++) {
+            if (CATALOGUE[i].pkg.equals(pkg)) return CATALOGUE[i].title;
+        }
+        return pkg;
+    }
+
+    /** A catalogue entry that is switched off only from its own row, never in bulk. */
+    static boolean isRisky(String pkg) {
+        for (int i = 0; i < CATALOGUE.length; i++) {
+            if (CATALOGUE[i].risky && CATALOGUE[i].pkg.equals(pkg)) return true;
+        }
+        return false;
     }
 
     private static boolean inCatalogue(String pkg) {

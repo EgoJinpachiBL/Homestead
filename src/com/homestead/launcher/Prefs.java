@@ -41,6 +41,7 @@ public final class Prefs {
     private static final String K_ADB = "adb_enabled";
     private static final String K_TUNNEL = "adb_tunnel_enabled";
     private static final String K_REAPPLY = "adb_reapply_on_boot";
+    private static final String K_RESTORE_WATCH = "restore_watch";
     private static final String K_DISABLED = "disabled_by_us";
     private static final String K_REFUSED = "refused_by_fire_os";
     private static final String K_HOME_OFF = "home_off_by_user";
@@ -222,6 +223,16 @@ public final class Prefs {
     /** Amazon Home, Settings and TV Health use icons read from Fire OS's own apps. */
     public static boolean fireOsIcons(Context c) { return sp(c).getBoolean(K_FIRE_ICONS, false); }
     public static void setFireOsIcons(Context c, boolean v) { sp(c).edit().putBoolean(K_FIRE_ICONS, v).apply(); }
+
+    /**
+     * Tell me when the system undoes my changes: after an update Fire OS can switch back on
+     * a package Debloat turned off, and a tile on top of the home screen offers to redo it.
+     * Off by default.
+     */
+    public static boolean restoreWatch(Context c) { return sp(c).getBoolean(K_RESTORE_WATCH, false); }
+    public static void setRestoreWatch(Context c, boolean v) {
+        sp(c).edit().putBoolean(K_RESTORE_WATCH, v).apply();
+    }
 
     // ---------------------------------------------------------------- updates
 

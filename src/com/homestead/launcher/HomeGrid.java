@@ -100,6 +100,12 @@ public class HomeGrid implements SettingsPanel.Host {
     private View topTile;
     /** AppModel.order() as of the last build, to spot a re-sort done by the other grid. */
     private String builtOrder;
+    private boolean restoreShown;
+    /** What holds the restore tile; it slides the tile out when the shared clock runs out. */
+    private FrameLayout restoreSlot;
+    private final Runnable restoreTimeUp = new Runnable() {
+        public void run() { slideOutRestore(); }
+    };
     /**
      * Bumped whenever either grid changes a layout setting or hides a tile; each grid builds
      * against the value it saw, so the other one can tell it is out of date.
@@ -337,6 +343,11 @@ public class HomeGrid implements SettingsPanel.Host {
 
     /** Focus for a fresh Home press: Live TV when it comes first, else as takeFocus(). */
     public void takeStartFocus() {
+        // The restore tile is the one thing worth seeing before anything else.
+        if (AppModel.restorePopupLive() && selectKey(AppModel.RESTORE_KEY)) {
+            scroll.scrollTo(0, 0);
+            return;
+        }
         if (liveTvFirst() && selectKey(AppModel.LIVETV_KEY)) {
             scroll.scrollTo(0, 0);
             return;
@@ -386,7 +397,8 @@ public class HomeGrid implements SettingsPanel.Host {
         }
         if (target == null) return false;
         // Settings and TV Health stay reachable so hidden tiles can always be restored.
-        if (target.type == AppModel.TYPE_SETTINGS || target.type == AppModel.TYPE_HEALTH) {
+        if (target.type == AppModel.TYPE_SETTINGS || target.type == AppModel.TYPE_HEALTH
+                || target.type == AppModel.TYPE_RESTORE) {
             return false;
         }
         Prefs.setHidden(ctx, target.key(), true);
@@ -426,6 +438,11 @@ public class HomeGrid implements SettingsPanel.Host {
         if (panels.isEmpty()) {
             scroll.setDescendantFocusability(ViewGroup.FOCUS_BEFORE_DESCENDANTS);
             takeFocus();
+            // The restore tile was under the page; its time on screen starts now.
+            if (restoreSlot != null) {
+                if (AppModel.restorePopupLive()) armRestore();
+                else dropRestore();
+            }
         } else {
             final View below = panels.get(panels.size() - 1);
             below.setVisibility(View.VISIBLE);
@@ -587,6 +604,9 @@ public class HomeGrid implements SettingsPanel.Host {
             if (keep == null || !selectKey(keep)) takeFocus();
         }
         applyScroll(y, rx);
+        // A restore tile that appears while someone is browsing does not take the focus:
+        // a Select meant for the tile under the remote would land on it. It is at the top,
+        // and a fresh Home press selects it (takeStartFocus()).
     }
 
     // ---------------------------------------------------------------- layout
@@ -614,6 +634,7 @@ public class HomeGrid implements SettingsPanel.Host {
         rows.clear();
         focusedCell = null;
         topTile = null;
+        restoreSlot = null;
 
         List<AppModel.Item> safe = new ArrayList<AppModel.Item>();
         List<AppModel.Item> all = AppModel.allItems();
@@ -633,6 +654,7 @@ public class HomeGrid implements SettingsPanel.Host {
         cellsByKey.clear();
         rows.clear();
         focusedCell = null;
+        restoreSlot = null;
 
         List<AppModel.Item> inputs = new ArrayList<AppModel.Item>();
         List<AppModel.Item> nonTv = new ArrayList<AppModel.Item>();
@@ -641,12 +663,17 @@ public class HomeGrid implements SettingsPanel.Host {
         // Live TV first takes the Live TV tile out of its section and puts it above them all.
         boolean tvFirst = liveTvFirst();
         AppModel.Item liveTv = null;
+        AppModel.Item restore = null;
         topTile = null;
 
         List<AppModel.Item> all = AppModel.visibleItems(ctx);
+        restoreShown = false;
         for (int i = 0; i < all.size(); i++) {
             AppModel.Item it = all.get(i);
-            if (tvFirst && it.type == AppModel.TYPE_LIVETV) {
+            if (it.type == AppModel.TYPE_RESTORE) {
+                restoreShown = true;
+                restore = it;
+            } else if (tvFirst && it.type == AppModel.TYPE_LIVETV) {
                 liveTv = it;
             } else if (it.type == AppModel.TYPE_INPUT || it.type == AppModel.TYPE_LIVETV
                     || it.type == AppModel.TYPE_AMAZON_HOME
@@ -687,6 +714,7 @@ public class HomeGrid implements SettingsPanel.Host {
         String nonTvTitle = ctx.getString(R.string.home_sec_nontv);
         String tvTitle = ctx.getString(R.string.home_sec_tv);
         boolean first = true;
+        if (restore != null) { addRestoreTile(restore); first = false; }
         if (tvFirst) {
             if (liveTv != null)    { addLiveTvTile(liveTv); first = false; }
             if (!tv.isEmpty())     { addHeader(tvTitle, first); first = false; addTileGrid(tv); }
@@ -702,7 +730,7 @@ public class HomeGrid implements SettingsPanel.Host {
     /** Live TV first: one large tile, two banner cells wide, on its own row. */
     private void addLiveTvTile(AppModel.Item it) {
         FrameLayout cell = newCell(it);
-        topTile = cell;
+        if (topTile == null) topTile = cell;
         // Alone on its row, so Left or Right would otherwise jump to a tile in another row.
         stopAt(cell, true, true);
         GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
@@ -746,6 +774,220 @@ public class HomeGrid implements SettingsPanel.Host {
         int w = AppModel.cellW(ctx) * 2 + dp(GAP_DP);
         int h = AppModel.cellH(ctx) * 3 / 2;
         column.addView(cell, new LinearLayout.LayoutParams(w, h));
+    }
+
+    /** The system undid something Debloat had switched off: one amber tile above everything. */
+    private void addRestoreTile(AppModel.Item it) {
+        FrameLayout cell = newCell(it);
+        topTile = cell;
+        stopAt(cell, true, true);
+        GradientDrawable card = new GradientDrawable(GradientDrawable.Orientation.TL_BR,
+                new int[] { 0xFF9A6A12, 0xFF4A3208 });
+        card.setCornerRadius(dp(8));
+        cell.setBackground(card);
+
+        LinearLayout text = new LinearLayout(ctx);
+        text.setOrientation(LinearLayout.VERTICAL);
+        text.setGravity(Gravity.CENTER_VERTICAL);
+        text.setPadding(dp(24), dp(12), dp(24), dp(12));
+
+        TextView title = new TextView(ctx);
+        title.setText(it.label);
+        title.setTextColor(Color.WHITE);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 24);
+        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        text.addView(title);
+
+        List<String> pkgs = AppModel.reverted(ctx);
+        TextView hint = new TextView(ctx);
+        hint.setText(ctx.getString(pkgs.size() == 1 ? R.string.home_restore_hint_one
+                : R.string.home_restore_hint_many, revertedNames(pkgs)));
+        hint.setTextColor(0xE6FFFFFF);
+        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        hint.setMaxLines(2);
+        hint.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        text.addView(hint);
+
+        // Two lines of hint do not fit a banner cell's height at every density, so the tile
+        // grows to its text and is never shorter than a cell.
+        cell.setMinimumHeight(AppModel.cellH(ctx));
+        cell.addView(text, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.CENTER_VERTICAL));
+
+        // The clock starts when a window really shows the tile, scrolled into view: the
+        // activity's window can be built while it is in the background, and the page can
+        // be scrolled down when the tile appears.
+        final android.view.ViewTreeObserver.OnScrollChangedListener inView =
+                new android.view.ViewTreeObserver.OnScrollChangedListener() {
+                    public void onScrollChanged() {
+                        if (!AppModel.restoreClockRunning()) armRestore();
+                    }
+                };
+        final FrameLayout slot = new FrameLayout(ctx) {
+            @Override protected void onAttachedToWindow() {
+                super.onAttachedToWindow();
+                // Back on screen after its time ran out elsewhere: gone before it is drawn.
+                if (!AppModel.restorePopupLive()) { dropRestore(); return; }
+                getViewTreeObserver().addOnScrollChangedListener(inView);
+                post(new Runnable() { public void run() { armRestore(); } });
+            }
+            @Override protected void onWindowVisibilityChanged(int v) {
+                super.onWindowVisibilityChanged(v);
+                if (v != View.VISIBLE) removeCallbacks(restoreTimeUp);
+                else if (!AppModel.restorePopupLive()) dropRestore();
+                else armRestore();
+            }
+            @Override protected void onDetachedFromWindow() {
+                removeCallbacks(restoreTimeUp);
+                getViewTreeObserver().removeOnScrollChangedListener(inView);
+                super.onDetachedFromWindow();
+            }
+        };
+        slot.setClipChildren(false);
+        slot.addView(cell, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        restoreSlot = slot;
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                AppModel.cellW(ctx) * 3 + dp(GAP_DP) * 2, ViewGroup.LayoutParams.WRAP_CONTENT);
+        lp.bottomMargin = dp(GAP_DP);
+        column.addView(slot, lp);
+    }
+
+    /** The tile is on screen here: start the shared clock if this is the first sight, and
+     *  slide out when it runs out, at the same moment as the other grid. A page open over
+     *  the grid hides it, so the clock waits for that too (closePanel() arms it again). */
+    private void armRestore() {
+        FrameLayout slot = restoreSlot;
+        if (slot == null || slot.getParent() == null) return;
+        if (slot.getWindowVisibility() != View.VISIBLE || !slot.isShown()) return;
+        if (!panels.isEmpty() && !AppModel.restoreClockRunning()) return;
+        // Not counted until most of it is on screen.
+        android.graphics.Rect seen = new android.graphics.Rect();
+        if (!AppModel.restoreClockRunning()
+                && (!slot.getGlobalVisibleRect(seen) || seen.height() < slot.getHeight() / 2)) {
+            return;
+        }
+        long left = AppModel.startRestorePopup();
+        android.util.Log.i("Homestead", "restore tile on screen ("
+                + ctx.getClass().getSimpleName() + "), " + left + " ms left");
+        slot.removeCallbacks(restoreTimeUp);
+        slot.postDelayed(restoreTimeUp, Math.max(0L, left));
+    }
+
+    /** Its time ran out while this grid was not showing it: take it out with no animation. */
+    private void dropRestore() {
+        FrameLayout slot = restoreSlot;
+        if (slot == null) return;
+        restoreSlot = null;
+        cellsByKey.remove(AppModel.RESTORE_KEY);
+        slot.setVisibility(View.GONE);
+        root.post(new Runnable() {
+            public void run() { rebuild(); }
+        });
+    }
+
+    /** Time is up: the tile slides out to the left, then the rows below close the gap. */
+    private void slideOutRestore() {
+        final FrameLayout slot = restoreSlot;
+        if (slot == null || slot.getParent() == null || slot.getChildCount() == 0) return;
+        restoreSlot = null;
+        android.util.Log.i("Homestead", "restore tile time up, sliding out ("
+                + ctx.getClass().getSimpleName() + ")");
+        final View tile = slot.getChildAt(0);
+        // Out of reach from here on, so Select cannot land on a tile that is leaving.
+        cellsByKey.remove(AppModel.RESTORE_KEY);
+        boolean had = tile.hasFocus();
+        tile.setFocusable(false);
+        if (had && panels.isEmpty()) takeStartFocus();
+        tile.animate().translationX(-(slot.getWidth() + dp(MARGIN_DP))).alpha(0f)
+                .setDuration(350L)
+                .withEndAction(new Runnable() {
+                    public void run() { collapseRestore(slot); }
+                });
+    }
+
+    private void collapseRestore(final FrameLayout slot) {
+        final LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) slot.getLayoutParams();
+        final int h = slot.getHeight();
+        final int m = lp.bottomMargin;
+        android.animation.ValueAnimator a = android.animation.ValueAnimator.ofFloat(1f, 0f);
+        a.setDuration(250L);
+        a.addUpdateListener(new android.animation.ValueAnimator.AnimatorUpdateListener() {
+            public void onAnimationUpdate(android.animation.ValueAnimator va) {
+                float f = (Float) va.getAnimatedValue();
+                lp.height = Math.round(h * f);
+                lp.bottomMargin = Math.round(m * f);
+                slot.setLayoutParams(lp);
+            }
+        });
+        a.addListener(new android.animation.AnimatorListenerAdapter() {
+            @Override public void onAnimationEnd(android.animation.Animator an) {
+                // The model no longer offers the tile, so this drops the empty slot.
+                if (slot.getParent() != column) return;
+                // Seen at the top of the page, it leaves the page at the top: the rows that
+                // moved up would otherwise sit under the edge with their header cut off.
+                boolean atTop = scroll.getScrollY() < h;
+                rebuild();
+                if (atTop && panels.isEmpty()) keepAtTop();
+            }
+        });
+        a.start();
+    }
+
+    /** The reverted packages by name, short enough for the tile: "A", "A and B",
+     *  "A, B and C", or "A, B and 4 more". */
+    private static String revertedNames(List<String> pkgs) {
+        int n = pkgs.size();
+        if (n == 0) return "";
+        String a = Debloat.titleOf(pkgs.get(0));
+        if (n == 1) return a;
+        String b = Debloat.titleOf(pkgs.get(1));
+        if (n == 2) return a + " and " + b;
+        if (n == 3) return a + ", " + b + " and " + Debloat.titleOf(pkgs.get(2));
+        return a + ", " + b + " and " + (n - 2) + " more";
+    }
+
+    /** Switch off again whatever the system switched back on; open Setup if there is no link. */
+    private void restoreReverted() {
+        List<String> pkgs = AppModel.reverted(ctx);
+        if (pkgs.isEmpty()) return;
+        if (!AdbBridge.canRun(ctx)) {
+            Toast.makeText(ctx, R.string.home_restore_failed, Toast.LENGTH_LONG).show();
+            showPanel(DebloatPanel.build(ctx, panelHost));
+            return;
+        }
+        final String[] list = pkgs.toArray(new String[pkgs.size()]);
+        String[] cmds = new String[list.length];
+        for (int i = 0; i < list.length; i++) cmds[i] = AdbBridge.disableCommand(list[i]);
+        Toast.makeText(ctx, R.string.home_connecting, Toast.LENGTH_SHORT).show();
+        AdbBridge.runRetry(cmds, new AdbBridge.Callback() {
+            public void onDone(boolean ok, String out) {
+                // Never started: nothing changed, so keep the tile and the record of what
+                // is still on, and say so. Forgetting them here would hide the problem.
+                if (!AdbBridge.ran(out)) {
+                    Toast.makeText(ctx, R.string.home_restore_failed, Toast.LENGTH_LONG).show();
+                    return;
+                }
+                StringBuilder kept = new StringBuilder();
+                for (int i = 0; i < list.length; i++) {
+                    boolean off = Debloat.stateOf(ctx, list[i]) == Debloat.DISABLED;
+                    Prefs.noteDisabled(ctx, list[i], off);
+                    if (!off) {
+                        if (kept.length() > 0) kept.append(", ");
+                        kept.append(Debloat.titleOf(list[i]));
+                    }
+                }
+                // Fire OS refuses some packages; the record is dropped so the tile does not
+                // come back for good, but the user is told.
+                if (kept.length() > 0) {
+                    Toast.makeText(ctx, ctx.getString(R.string.home_restore_refused, kept),
+                            Toast.LENGTH_LONG).show();
+                }
+                AppModel.reload(ctx);
+                rebuild();
+            }
+        });
     }
 
     private void addHeader(String text, boolean first) {
@@ -1048,7 +1290,7 @@ public class HomeGrid implements SettingsPanel.Host {
         if (it.icon != null) ic.setImageBitmap(it.icon);
         int isz = dp(CARD_H_DP) * 62 / 100;
         LinearLayout.LayoutParams ilp = new LinearLayout.LayoutParams(isz, isz);
-        ilp.rightMargin = dp(9);
+        ilp.rightMargin = dp(8);
         row.addView(ic, ilp);
 
         TextView tv = new TextView(ctx);
@@ -1092,6 +1334,10 @@ public class HomeGrid implements SettingsPanel.Host {
         if (it.type == AppModel.TYPE_HEALTH) {
             logOpen(it.label);
             showPanel(HealthPanel.build(ctx, panelHost));
+            return;
+        }
+        if (it.type == AppModel.TYPE_RESTORE) {
+            restoreReverted();
             return;
         }
         if (it.type == AppModel.TYPE_LIVETV) {
