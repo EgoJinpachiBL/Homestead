@@ -72,6 +72,13 @@ public final class AppModel {
     static final String PROFILE_PICKER_PKG = "com.amazon.ftv.profilepicker";
     static final String AMAZON_KIDS_PKG = "com.amazon.tahoe";
     static final String WSIW_PKG = "com.amazon.vizzini.ftvcds";
+    /** Prime Video on Fire TV. */
+    static final String PRIME_VIDEO_PKG = "com.amazon.firebat";
+    /**
+     * Amazon's "FireTV Player", installed alongside Prime Video. It declares a launcher entry
+     * but opens no screen of its own, so its tile did nothing.
+     */
+    static final String FIRETV_PLAYER_PKG = "com.amazon.avod";
     static final String AMAZON_SETTINGS = "com.amazon.tv.settings.v2";
     static final String AMAZON_HOME_CLS = "com.amazon.tv.launcher.ui.HomeActivity_vNext";
 
@@ -233,6 +240,9 @@ public final class AppModel {
         PackageManager pm = c.getPackageManager();
         Set<String> seen = new HashSet<String>();
         String self = c.getPackageName();
+        // FireTV Player only stays off while Prime Video itself has a tile; a TV without the
+        // Prime Video app keeps it, in case it is the Prime Video app there.
+        boolean hidePlayer = launchable(pm, PRIME_VIDEO_PKG);
 
         // LEANBACK first so a package that declares both is classified as a TV app.
         String[] cats = { Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER };
@@ -249,6 +259,7 @@ public final class AppModel {
                 // Amazon's launcher is reached through the "Amazon Home" tile, which also
                 // stands the redirect down; listing it directly would just bounce back.
                 if (AMAZON_LAUNCHER.equals(ai.packageName)) continue;
+                if (hidePlayer && FIRETV_PLAYER_PKG.equals(ai.packageName)) continue;
                 if (!seen.add(ai.packageName)) continue;
 
                 Item a = new Item();
@@ -367,6 +378,21 @@ public final class AppModel {
     public static boolean hasRestore() {
         for (int i = 0; i < ITEMS.size(); i++) {
             if (ITEMS.get(i).type == TYPE_RESTORE) return true;
+        }
+        return false;
+    }
+
+    /** Whether the package has an enabled launcher entry, the way the grid finds apps. */
+    private static boolean launchable(PackageManager pm, String pkg) {
+        String[] cats = { Intent.CATEGORY_LEANBACK_LAUNCHER, Intent.CATEGORY_LAUNCHER };
+        for (int ci = 0; ci < cats.length; ci++) {
+            try {
+                Intent probe = new Intent(Intent.ACTION_MAIN);
+                probe.addCategory(cats[ci]);
+                probe.setPackage(pkg);
+                List<ResolveInfo> ris = pm.queryIntentActivities(probe, 0);
+                if (ris != null && !ris.isEmpty()) return true;
+            } catch (Throwable t) { }
         }
         return false;
     }
