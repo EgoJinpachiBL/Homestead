@@ -43,6 +43,8 @@ public class HomeKeyWatcher extends Service {
     static final int MSG_REGISTER = 1;
     /** arg1 is the uid that started the HOME intent. */
     static final int MSG_HOME = 2;
+    /** arg1 is the AppButtons index of the remote app button pressed. */
+    static final int MSG_APPKEY = 3;
 
     private static final String TAG = "Homestead";
     private static final String PERM = "android.permission.READ_LOGS";
@@ -51,6 +53,7 @@ public class HomeKeyWatcher extends Service {
     private volatile boolean running;
     private volatile java.lang.Process proc;
     private Thread reader;
+    private final AppButtons appButtons = new AppButtons();
 
     private final Messenger me = new Messenger(new Handler(Looper.getMainLooper()) {
         public void handleMessage(Message m) {
@@ -97,8 +100,9 @@ public class HomeKeyWatcher extends Service {
                 // -T 1 follows from the newest line, so there is no backlog to skip.
                 // Android 9 (Fire OS 7) logs activity starts as ActivityManager; Android 10
                 // and later (Fire OS 8) as ActivityTaskManager.
-                proc = new ProcessBuilder("logcat", "-b", "system", "-v", "epoch", "-T", "1",
-                        "ActivityManager:I", "ActivityTaskManager:I", "*:S")
+                proc = new ProcessBuilder("logcat", "-b", "system", "-b", "main", "-v", "epoch", "-T", "1",
+                        "ActivityManager:I", "ActivityTaskManager:I",
+                        "AmazonAppstore.AppLaunchIntentProcessor:I", "*:S")
                         .redirectErrorStream(true).start();
                 BufferedReader r = new BufferedReader(
                         new InputStreamReader(proc.getInputStream()));
@@ -106,7 +110,9 @@ public class HomeKeyWatcher extends Service {
                 String line;
                 while (running && (line = r.readLine()) != null) {
                     int uid = homeStartUid(line, started);
-                    if (uid >= 0) send(uid);
+                    if (uid >= 0) send(MSG_HOME, uid);
+                    int button = appButtons.match(line, started);
+                    if (button >= 0) send(MSG_APPKEY, button);
                 }
             } catch (Throwable t) {
                 if (running) Log.w(TAG, "Home watch failed: " + t);
@@ -146,11 +152,11 @@ public class HomeKeyWatcher extends Service {
         try { return Integer.parseInt(line.substring(s, e)); } catch (Throwable t) { return -1; }
     }
 
-    private void send(int uid) {
+    private void send(int what, int arg) {
         Messenger c = client;
         if (c == null) return;
         try {
-            c.send(Message.obtain(null, MSG_HOME, uid, 0));
+            c.send(Message.obtain(null, what, arg, 0));
         } catch (RemoteException e) {
             client = null;
         }

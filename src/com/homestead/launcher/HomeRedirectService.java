@@ -232,6 +232,7 @@ public class HomeRedirectService extends AccessibilityService {
     private final Messenger fromWatcher = new Messenger(new Handler(Looper.getMainLooper()) {
         public void handleMessage(Message m) {
             if (m.what == HomeKeyWatcher.MSG_HOME) onHomeKey(m.arg1);
+            else if (m.what == HomeKeyWatcher.MSG_APPKEY) onAppButton(m.arg1);
         }
     });
 
@@ -292,6 +293,22 @@ public class HomeRedirectService extends AccessibilityService {
             if (!home.isPanelOpen()) home.takeStartFocus();
         }
         attach();
+    }
+
+    /**
+     * One of the remote's app buttons. The system has already started Amazon's app (or the
+     * Appstore page for it); starting ours now puts it on top. Does nothing if the app is
+     * not installed, so the button then behaves as Amazon made it.
+     */
+    private void onAppButton(int button) {
+        if (button < 0 || button >= AppButtons.TARGETS.length) return;
+        String pkg = AppButtons.TARGETS[button];
+        Intent i = getPackageManager().getLeanbackLaunchIntentForPackage(pkg);
+        if (i == null) i = getPackageManager().getLaunchIntentForPackage(pkg);
+        if (i == null) return;
+        Log.i(TAG, "app button " + button + " -> " + pkg);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try { startActivity(i); } catch (Throwable t) { Log.w(TAG, "app button launch failed: " + t); }
     }
 
     /** Amazon's settings app, and its uid once looked up. */
