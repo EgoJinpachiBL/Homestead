@@ -61,7 +61,7 @@ public final class CommandsPanel {
                     + "\"Finish setup automatically\" in Setup does it from the TV, or "
                     + "run:\n\n"
                     + "adb shell settings put secure enabled_accessibility_services "
-                    + pkg + "/" + pkg + ".HomeRedirectService\n"
+                    + pkg + "/" + HomeRedirectService.class.getName() + "\n"
                     + "adb shell settings put secure accessibility_enabled 1");
         }
 

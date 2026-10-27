@@ -296,7 +296,7 @@ public final class AdbBridge {
      */
     public static String[] selfSetupCommands(Context c, String currentServices) {
         String pkg = c.getPackageName();
-        String comp = pkg + "/" + pkg + ".HomeRedirectService";
+        String comp = pkg + "/" + HomeRedirectService.class.getName();
         String current = cleanServices(currentServices);
         String services;
         if (current.length() == 0) {

@@ -317,6 +317,11 @@ public class HomeRedirectService extends AccessibilityService {
         return AMAZON.contentEquals(pkg) && cls != null && cls.toString().contains("Settings");
     }
 
+    /** Amazon's text search screen (a window of its launcher) is coming up. */
+    private static boolean isSearchWindow(CharSequence pkg, CharSequence cls) {
+        return AMAZON.contentEquals(pkg) && cls != null && cls.toString().contains("Search");
+    }
+
     /**
      * Stand down for Settings: no redirect for a few seconds, no queued handoff, and an
      * overlay that is up is lifted so the settings page shows.
@@ -739,6 +744,12 @@ public class HomeRedirectService extends AccessibilityService {
 
         if (isSettingsWindow(p, e.getClassName())) {
             enterSettings("Amazon settings in front");
+            return;
+        }
+        // Amazon's search and typing screens are windows of its launcher too: redirecting
+        // them sends you home whenever you try to type.
+        if (isSearchWindow(p, e.getClassName())) {
+            enterSettings("Amazon search in front");
             return;
         }
 
