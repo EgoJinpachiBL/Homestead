@@ -36,7 +36,9 @@ import java.io.InputStreamReader;
  * Needs READ_LOGS, a development permission granted over ADB. The log group it maps to is
  * applied only when a process starts, so this runs in its own process: binding after the
  * grant starts a fresh one that can read the log straight away. Only ActivityManager and
- * ActivityTaskManager lines from the system buffer are read, and nothing is kept.
+ * ActivityTaskManager lines from the system buffer and one Amazon Appstore tag from the main
+ * buffer (AmazonAppstore.AppLaunchIntentProcessor, for the remote app buttons) are read, and
+ * nothing is kept.
  */
 public class HomeKeyWatcher extends Service {
 

@@ -55,9 +55,9 @@ granted, a small background process (`:homekey`) reads the log to catch it.
 
 Be clear about what that permission is: `READ_LOGS` lets an app read the TV's whole system
 log, which can include details from other apps. Homestead asks `logcat` for only the
-`ActivityManager` lines in the `system` buffer, acts only on a HOME intent started by the
+`ActivityManager` lines in the `system` buffer, plus one Amazon Appstore tag (`AmazonAppstore.AppLaunchIntentProcessor`) in the `main` buffer, acts only on a HOME intent started by the
 system itself or by the app in front (some Amazon apps, such as Luna, pass Home on that
-way), and does not keep, store or send any of it. Nothing is read when the
+way) or on one of the remote's four app buttons being pressed (see AppButtons.java), and does not keep, store or send any of it. Nothing is read when the
 permission is not granted. To take it away:
 
     adb shell pm revoke com.homestead.launcher android.permission.READ_LOGS
