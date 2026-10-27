@@ -66,7 +66,8 @@ Write-Host '==> aapt2 link'
 Run "$BT\aapt2.exe" @('link', '-o', 'app-unsigned.apk', '-I', $ANDROID_JAR,
     '--manifest', 'AndroidManifest.xml', '-R', 'compiled.flata',
     '--min-sdk-version', "$MIN_SDK", '--target-sdk-version', "$TARGET_SDK",
-    '--java', 'gen', '--auto-add-overlay')
+    '--java', 'gen', '--auto-add-overlay',
+    '--rename-manifest-package', 'com.gamanor.launcher')
 
 Write-Host '==> javac'
 Get-ChildItem -Recurse src, gen -Filter *.java | ForEach-Object { '"' + ($_.FullName -replace '\\', '/') + '"' } |

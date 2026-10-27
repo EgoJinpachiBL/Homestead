@@ -67,6 +67,7 @@ echo "==> aapt2 link"
   --min-sdk-version "$MIN_SDK" \
   --target-sdk-version "$TARGET_SDK" \
   --java gen \
+  --rename-manifest-package com.gamanor.launcher \
   --auto-add-overlay
 
 echo "==> javac"

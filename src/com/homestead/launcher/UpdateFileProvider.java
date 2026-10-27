@@ -31,7 +31,7 @@ import java.io.FileNotFoundException;
  */
 public final class UpdateFileProvider extends ContentProvider {
 
-    private static final String AUTHORITY = "com.homestead.launcher.updates";
+    private static final String AUTHORITY = "com.gamanor.launcher.updates";
     private static final String FILE_NAME = "homestead-update.apk";
     private static final String MIME = "application/vnd.android.package-archive";
 

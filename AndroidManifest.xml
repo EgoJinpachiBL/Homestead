@@ -89,7 +89,7 @@
 
     <!-- Serves the downloaded update APK, read-only, to the system installer only. -->
     <provider android:name=".UpdateFileProvider"
-              android:authorities="com.homestead.launcher.updates"
+              android:authorities="com.gamanor.launcher.updates"
               android:exported="false"
               android:grantUriPermissions="true"/>
 
@@ -97,7 +97,7 @@
          can reach it; the provider refuses every caller except the shell user and root,
          and is write-only. -->
     <provider android:name=".BackgroundProvider"
-              android:authorities="com.homestead.launcher.background"
+              android:authorities="com.gamanor.launcher.background"
               android:exported="true"/>
 
     <!-- Open our launcher at boot instead of Amazon's -->

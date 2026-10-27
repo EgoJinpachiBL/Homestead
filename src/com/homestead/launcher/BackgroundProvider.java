@@ -32,7 +32,7 @@ import java.io.InputStream;
  * Receives a background photo from a computer, on any Fire OS:
  *
  *   adb push background.jpg /sdcard/Download/
- *   adb shell "content write --uri content://com.homestead.launcher.background/photo
+ *   adb shell "content write --uri content://com.gamanor.launcher.background/photo
  *       < /sdcard/Download/background.jpg"
  *
  * Fire OS 8 does not let adb write into the app's folder on external storage, but the
@@ -42,7 +42,7 @@ import java.io.InputStream;
  */
 public final class BackgroundProvider extends ContentProvider {
 
-    static final String AUTHORITY = "com.homestead.launcher.background";
+    static final String AUTHORITY = "com.gamanor.launcher.background";
     private static final String TAG = "Homestead";
     /** adb's shell user and root. android.os.Process only names them from API 29. */
     private static final int SHELL_UID = 2000, ROOT_UID = 0;
